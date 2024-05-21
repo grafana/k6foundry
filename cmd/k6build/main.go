@@ -9,6 +9,7 @@ import (
 //nolint:all
 func main() {
 	root := newRootCmd()
+	root.AddCommand(newVersionCmd())
 
 	err := root.Execute()
 	if err != nil {
