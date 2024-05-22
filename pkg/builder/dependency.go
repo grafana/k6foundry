@@ -1,8 +1,19 @@
 package builder
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+
+	"golang.org/x/mod/module"
+	"golang.org/x/mod/semver"
+)
+
+var (
+	ErrInvalidDependencyFormat = errors.New("invalid dependency format")
+	ErrInvalidSemanticVersion = errors.New("invalid dependency version")
+	ErrInvalidPath = errors.New("invalid dependency path")
+
 )
 
 // Module reference a go module and its version
@@ -17,17 +28,28 @@ type Module struct {
 }
 
 // ParseModule parses a module from a string of the form path[@version]
-// TODO: validate format of path and semantic version
 func ParseModule(mod string) (Module, error) {
 	path, version, found := strings.Cut(mod, "@")
 
 	// TODO: add regexp for checking path@version
 	if found && (path == "" || version == "") {
-		return Module{}, fmt.Errorf("parsing module: invalid syntax")
+		return Module{}, fmt.Errorf("%w: %q", ErrInvalidDependencyFormat, mod)
 	}
 
-	if version == "" {
+	switch version {
+	case "":
 		version = "latest"
+	case "latest":
+		break
+	default:
+		if !semver.IsValid(version) {
+			return Module{}, fmt.Errorf("%w: %q", ErrInvalidSemanticVersion, mod)
+		}
+		version = semver.Canonical(version)
+	}
+
+	if err := module.CheckPath(path); err != nil {
+		return Module{}, fmt.Errorf("%w: %q", ErrInvalidPath, mod)
 	}
 
 	return Module{

@@ -12,4 +12,5 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.k6.io/xk6 v0.11.0
+	golang.org/x/mod v0.17.0
 )
