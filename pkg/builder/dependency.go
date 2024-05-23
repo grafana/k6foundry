@@ -10,10 +10,9 @@ import (
 )
 
 var (
-	ErrInvalidDependencyFormat = errors.New("invalid dependency format")
-	ErrInvalidSemanticVersion = errors.New("invalid dependency version")
-	ErrInvalidPath = errors.New("invalid dependency path")
-
+	ErrInvalidDependencyFormat = errors.New("invalid dependency format")  //nolint:revive
+	ErrInvalidSemanticVersion  = errors.New("invalid dependency version") //nolint:revive
+	ErrInvalidPath             = errors.New("invalid dependency path")    //nolint:revive
 )
 
 // Module reference a go module and its version
@@ -54,6 +53,6 @@ func ParseModule(mod string) (Module, error) {
 
 	return Module{
 		PackagePath: path,
-		Version: version,
+		Version:     version,
 	}, nil
 }

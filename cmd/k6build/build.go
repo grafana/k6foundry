@@ -8,24 +8,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var ErrTargetPlatformUndefined = errors.New("target platform is required")
+var ErrTargetPlatformUndefined = errors.New("target platform is required") //nolint:revive
 
 const example = `
 k6build build -k v0.50.0 -d github.com/mostafa/xk6-kafka@v0.17.0
 `
 
 func newBuildCmd() *cobra.Command {
-
 	var (
-		deps []string
-		k6Version string
+		deps         []string
+		k6Version    string
 		platformFlag string
-		outPath string
+		outPath      string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "build",
-		Short:  "build a custom k6 binary with extensions",
+		Use:     "build",
+		Short:   "build a custom k6 binary with extensions",
 		Example: example,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
@@ -38,12 +37,12 @@ func newBuildCmd() *cobra.Command {
 					return err
 				}
 			}
-	
+
 			mods := []builder.Module{}
 			for _, d := range deps {
-				mod, err := builder.ParseModule(d)
-				if err != nil {
-					return err
+				mod, err2 := builder.ParseModule(d)
+				if err2 != nil {
+					return err2
 				}
 				mods = append(mods, mod)
 			}
@@ -53,13 +52,13 @@ func newBuildCmd() *cobra.Command {
 				return err
 			}
 
-			//TODO: check file permissions
-			outFile, err := os.OpenFile(outPath, os.O_WRONLY | os.O_CREATE, 0777)
+			// TODO: check file permissions
+			outFile, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE, 0o777) //nolint:forbidigo,gosec
 			if err != nil {
 				return err
 			}
 
-			defer outFile.Close()
+			defer outFile.Close() //nolint:errcheck
 
 			err = b.Build(ctx, platform, k6Version, mods, outFile)
 
@@ -72,8 +71,8 @@ func newBuildCmd() *cobra.Command {
 		"dependency",
 		"d",
 		[]string{},
-		"list of dependencies specifying the go mod path and version." +
-		" If version is omitted, 'latest' is used.",
+		"list of dependencies specifying the go mod path and version."+
+			" If version is omitted, 'latest' is used.",
 	)
 	cmd.Flags().StringVarP(&k6Version, "k6-version", "k", "latest", "k6 version")
 	cmd.Flags().StringVarP(&platformFlag, "platform", "p", "", "target platform in the format os/arch")

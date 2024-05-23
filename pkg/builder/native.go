@@ -1,3 +1,4 @@
+//nolint:forbidigo,revive
 package builder
 
 import (
@@ -37,6 +38,7 @@ func newNativeBuilder(_ context.Context) (Builder, error) {
 	return new(nativeBuilder), nil
 }
 
+// Build builds a custom k6 binary for a target platform with the given dependencies into the out io.Writer
 func (b *nativeBuilder) Build(
 	ctx context.Context,
 	platform Platform,

@@ -1,4 +1,4 @@
-// package builder contains k6 builder logic.
+// Package builder contains k6 builder logic.
 package builder
 
 import (
