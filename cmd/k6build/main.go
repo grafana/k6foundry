@@ -10,6 +10,7 @@ import (
 func main() {
 	root := newRootCmd()
 	root.AddCommand(newVersionCmd())
+	root.AddCommand(newBuildCmd())
 
 	err := root.Execute()
 	if err != nil {
