@@ -1,5 +1,5 @@
-// Package builder contains k6 builder logic.
-package builder
+// Package k6build contains k6 build logic.
+package k6build
 
 import (
 	"context"

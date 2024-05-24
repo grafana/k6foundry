@@ -1,5 +1,5 @@
 //nolint:forbidigo,revive
-package builder
+package k6build
 
 import (
 	"bytes"

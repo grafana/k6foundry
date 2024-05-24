@@ -1,4 +1,4 @@
-package builder
+package k6build
 
 import (
 	"errors"

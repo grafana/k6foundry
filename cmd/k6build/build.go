@@ -4,7 +4,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/grafana/k6build/pkg/builder"
+	"github.com/grafana/k6build"
 	"github.com/spf13/cobra"
 )
 
@@ -30,24 +30,24 @@ func newBuildCmd() *cobra.Command {
 			ctx := cmd.Context()
 
 			var err error
-			platform := builder.RuntimePlatform()
+			platform := k6build.RuntimePlatform()
 			if platformFlag != "" {
-				platform, err = builder.ParsePlatform(platformFlag)
+				platform, err = k6build.ParsePlatform(platformFlag)
 				if err != nil {
 					return err
 				}
 			}
 
-			mods := []builder.Module{}
+			mods := []k6build.Module{}
 			for _, d := range deps {
-				mod, err2 := builder.ParseModule(d)
+				mod, err2 := k6build.ParseModule(d)
 				if err2 != nil {
 					return err2
 				}
 				mods = append(mods, mod)
 			}
 
-			b, err := builder.NewDefaultBuilder(ctx)
+			b, err := k6build.NewDefaultBuilder(ctx)
 			if err != nil {
 				return err
 			}
