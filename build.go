@@ -12,7 +12,3 @@ type Builder interface {
 	Build(ctx context.Context, platform Platform, k6Version string, mods []Module, out io.Writer) error
 }
 
-// NewDefaultBuilder return a new default Builder
-func NewDefaultBuilder(ctx context.Context) (Builder, error) {
-	return newNativeBuilder(ctx)
-}
