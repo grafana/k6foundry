@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,10 +50,6 @@ var (
 
 type nativeBuilder struct {
 	opts      BuildOpts
-	stderr    *os.File
-	logWriter *io.PipeWriter
-	logFlags  int
-	logOutput io.Writer
 }
 
 type GoOpts struct {
@@ -100,15 +95,6 @@ func (b *nativeBuilder) Build(
 	mods []Module,
 	out io.Writer,
 ) error {
-	//TODO: move log setup out of build
-	b.logFlags = log.Flags()
-	b.logOutput = log.Writer()
-	b.logWriter = logrus.StandardLogger().WriterLevel(logrus.DebugLevel)
-	b.stderr = os.Stderr
-
-	log.SetOutput(b.logWriter)
-	log.SetFlags(0)
-
 	workDir, err := os.MkdirTemp(os.TempDir(), defaultWorkDir)
 	if err != nil {
 		return fmt.Errorf("creating working directory: %w", err)
@@ -116,17 +102,14 @@ func (b *nativeBuilder) Build(
 
 	defer func() {
 		if b.opts.SkipCleanup {
-			log.Printf("[INFO] Skipping cleanup; leaving folder intact: %s", workDir)
+			logrus.Infof("Skipping cleanup; leaving folder intact: %s", workDir)
 			return
 		}
-		log.Printf("[INFO] Cleaning up work directory: %s", workDir)
+		logrus.Infof("Cleaning up work directory: %s", workDir)
 		_ = os.RemoveAll(workDir)
 	}()
 
-	defer b.close()
-
-	logrus.Debug("Building new k6 binary (native)")
-
+	logrus.Info("Building new k6 binary (native)")
 	// prepare the build environment
 
 	k6Path := filepath.Join(workDir, "k6")
@@ -144,33 +127,31 @@ func (b *nativeBuilder) Build(
 		return err
 	}
 
-	log.Println("[INFO] Initializing Go module")
+	logrus.Info("Initializing Go module")
 	err = buildEnv.modInit(ctx)
 	if err != nil {
 		return err
 	}
 
-	log.Println("[INFO] Creating k6 main")
+	logrus.Info("Creating k6 main")
 	err = buildEnv.createMain(ctx, workDir, k6Version)
 	if err != nil {
 		return err
 	}
 
-	log.Println("[INFO] Updating modules")
+	logrus.Info("Updating modules")
 	err = buildEnv.addMods(ctx, workDir, mods)
 	if err != nil {
 		return err
 	}
 
-	log.Println("[INFO] Building k6")
-
+	logrus.Info("Building k6")
 	err = buildEnv.compile(ctx, k6Path)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("[INFO] Build complete")
-
+	logrus.Info("Build complete")
 	k6File, err := os.Open(k6Path)
 	if err != nil {
 		return err
@@ -234,15 +215,6 @@ func (e *goEnv) addMods(ctx context.Context, path string, mods []Module) error {
 	}
 
 	return nil
-}
-
-func (b *nativeBuilder) close() {
-	_ = b.logWriter.Close()
-
-	log.SetFlags(b.logFlags)
-	log.SetOutput(b.logOutput)
-
-	os.Stderr = b.stderr
 }
 
 func goVersion() (string, bool) {
