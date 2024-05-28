@@ -32,10 +32,19 @@ func newGoEnv(
 	if opts.GoCache != "" {
 		env["GOCACHE"] = opts.GoCache
 	}
-
 	if opts.GoModCache != "" {
 		env["GOMODCACHE"] = opts.GoModCache
 	}
+	if opts.GoProxy != "" {
+		env["GOPROXY"] = opts.GoProxy
+	}
+	if opts.GoNoProxy != "" {
+		env["GONOPROXY"] = opts.GoNoProxy
+	}
+	if opts.GoPrivate != "" {
+		env["GOPRIVATE"] = opts.GoPrivate
+	}
+
 	cmdEnv := []string{}
 	if opts.CopyEnv {
 		cmdEnv = os.Environ()

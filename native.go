@@ -57,6 +57,9 @@ type GoOpts struct {
 	Cgo          bool
 	GoCache      string
 	GoModCache   string
+	GoProxy      string
+	GoNoProxy    string
+	GoPrivate    string
 	TimeoutGet   time.Duration
 	TimeoutBuild time.Duration
 	RaceDetector bool
