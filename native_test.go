@@ -128,6 +128,11 @@ func TestBuild(t *testing.T) {
 			pkgPath: "go.k6.io/k6ext",
 			version: "v0.1.0",
 		},
+		{
+			pkgSrc:  "test/pkgs/k6extV2",
+			pkgPath: "go.k6.io/k6ext/v2",
+			version: "v2.0.0",
+		},
 	}
 
 	goproxy, err := os.MkdirTemp(t.TempDir(), "goproxy")
@@ -181,6 +186,14 @@ func TestBuild(t *testing.T) {
 			},
 			expectError: ErrResolvingDependency,
 		},
+		{
+			title:     "compile k6 v0.1.0 with k6extV2 (v0.2.0)",
+			k6Version: "v0.2.0",
+			mods: []Module{
+				{PackagePath: "go.k6.io/k6ext", Version: "v2.0.0"},
+			},
+			expectError: nil,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -200,7 +213,9 @@ func TestBuild(t *testing.T) {
 					GoPrivate: "go.k6.io",
 					GoCache:   gocache,
 				},
+				SkipCleanup: true,
 			}
+
 			b, err := NewNativeBuilder(context.Background(), opts)
 			if err != nil {
 				t.Fatalf("setting up test %v", err)

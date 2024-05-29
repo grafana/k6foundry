@@ -1,19 +1,16 @@
-//nolint:forbidigo,revive
+//nolint:forbidigo,revive,funlen
 package k6build
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/mod/semver"
 )
 
 const (
@@ -32,18 +29,10 @@ func main() {
 	k6cmd.Execute()
 }
 `
-
 	modImportTemplate = `package main
 
 	import _ %q
 `
-)
-
-var (
-	moduleVersionRegexp = regexp.MustCompile(`.+/v(\d+)$`)
-
-	ErrNoGoToolchain = errors.New("go toolchain notfound")
-	ErrNoGit         = errors.New("git notfound")
 )
 
 type nativeBuilder struct {
@@ -121,15 +110,28 @@ func (b *nativeBuilder) Build(
 	}
 
 	logrus.Info("Creating k6 main")
-	err = buildEnv.createMain(ctx, workDir, k6Version)
+	err = b.createMain(ctx, workDir)
 	if err != nil {
 		return err
 	}
 
-	logrus.Info("Updating modules")
-	err = buildEnv.addMods(ctx, workDir, mods)
+	k6Mod := Module{PackagePath: defaultK6ModulePath, Version: k6Version}
+	err = buildEnv.addMod(ctx, k6Mod)
 	if err != nil {
 		return err
+	}
+
+	logrus.Info("importing modules")
+	for _, m := range mods {
+		err = b.createModuleImport(ctx, workDir, m)
+		if err != nil {
+			return err
+		}
+
+		err = buildEnv.addMod(ctx, m)
+		if err != nil {
+			return err
+		}
 	}
 
 	logrus.Info("Building k6")
@@ -152,86 +154,25 @@ func (b *nativeBuilder) Build(
 	return nil
 }
 
-func (e *goEnv) createMain(ctx context.Context, path string, k6Version string) error {
-	k6ModulePath, err := versionedModulePath(defaultK6ModulePath, k6Version)
-	if err != nil {
-		return err
-	}
-
+func (b *nativeBuilder) createMain(_ context.Context, path string) error {
 	// write the main module file
 	mainPath := filepath.Join(path, "main.go")
-	mainContent := fmt.Sprintf(mainModuleTemplate, k6ModulePath)
-	err = os.WriteFile(mainPath, []byte(mainContent), 0o600)
+	mainContent := fmt.Sprintf(mainModuleTemplate, defaultK6ModulePath)
+	err := os.WriteFile(mainPath, []byte(mainContent), 0o600)
 	if err != nil {
-		return fmt.Errorf("writing file %w", err)
-	}
-
-	err = e.modRequire(ctx, k6ModulePath, k6Version)
-	if err != nil {
-		return err
-	}
-
-	return e.modTidy(ctx)
-}
-
-// TODO: use golang.org/x/mod/modfile package to manipulate the gomod programmatically
-func (e *goEnv) addMods(ctx context.Context, path string, mods []Module) error {
-	for _, m := range mods {
-		// write the module file
-		modPath, err := versionedModulePath(m.PackagePath, m.Version)
-		if err != nil {
-			return err
-		}
-
-		modImportFile := filepath.Join(path, strings.ReplaceAll(modPath, "/", "_")+".go")
-		modImportContent := fmt.Sprintf(modImportTemplate, modPath)
-		err = os.WriteFile(modImportFile, []byte(modImportContent), 0o600)
-		if err != nil {
-			return fmt.Errorf("writing file %w", err)
-		}
-
-		err = e.modRequire(ctx, modPath, m.Version)
-		if err != nil {
-			return err
-		}
-
-		err = e.modTidy(ctx)
-		if err != nil {
-			return err
-		}
+		return fmt.Errorf("writing main file %w", err)
 	}
 
 	return nil
 }
 
-// returns the modulePath with the major component of moduleVersion added,
-// if it is a valid semantic version and is > 1
-// Examples:
-// - path="foo" and version="v1.0.0" returns "foo"
-// - path="foo" and version="v2.0.0" returns "foo/v2"
-// - path="foo/v2" and version="v3.0.0" returns an error
-// - path="foo" and version="latest" returns "foo"
-func versionedModulePath(modulePath, moduleVersion string) (string, error) {
-	// if not is a semantic version return (could have been a commit SHA or 'latest')
-	if !semver.IsValid(moduleVersion) {
-		return modulePath, nil
-	}
-	major := semver.Major(moduleVersion)
-
-	// if the module path has a major version at the end, check for inconsistencies
-	if moduleVersionRegexp.MatchString(modulePath) {
-		modPathVer := filepath.Base(modulePath)
-		if modPathVer != major {
-			return "", fmt.Errorf("versioned module path %q and requested major version (%s) conflicts", modulePath, major)
-		}
-		return modulePath, nil
+func (b *nativeBuilder) createModuleImport(_ context.Context, path string, mod Module) error {
+	modImportFile := filepath.Join(path, strings.ReplaceAll(mod.PackagePath, "/", "_")+".go")
+	modImportContent := fmt.Sprintf(modImportTemplate, mod.PackagePath)
+	err := os.WriteFile(modImportFile, []byte(modImportContent), 0o600)
+	if err != nil {
+		return fmt.Errorf("writing mod file %w", err)
 	}
 
-	// if module path does not specify major version, add it if > 1
-	switch major {
-	case "v0", "v1":
-		return modulePath, nil
-	default:
-		return filepath.Join(modulePath, major), nil
-	}
+	return nil
 }

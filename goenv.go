@@ -15,6 +15,8 @@ import (
 var (
 	ErrCompiling           = errors.New("compiling")
 	ErrExecutingGoCommand  = errors.New("executing go command")
+	ErrNoGoToolchain       = errors.New("go toolchain notfound")
+	ErrNoGit               = errors.New("git notfound")
 	ErrResolvingDependency = errors.New("resolving dependency")
 	ErrSettingGoEnv        = errors.New("setting go environment")
 )
@@ -75,6 +77,23 @@ func newGoEnv(
 		stdout:   stdout,
 		stderr:   stderr,
 	}, nil
+}
+
+// TODO: use golang.org/x/mod/modfile package to manipulate the gomod programmatically
+func (e *goEnv) addMod(ctx context.Context, mod Module) error {
+	versionedPath, err := mod.VersionedPath()
+	if err != nil {
+		return err
+	}
+
+	err = e.modRequire(ctx, versionedPath, mod.Version)
+	if err != nil {
+		return err
+	}
+
+	err = e.modTidy(ctx)
+
+	return err
 }
 
 func (e goEnv) runGo(ctx context.Context, timeout time.Duration, args ...string) error {
