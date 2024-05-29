@@ -1,6 +1,7 @@
 package k6build
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -33,6 +34,14 @@ func newGoEnv(
 	stdout io.Writer,
 	stderr io.Writer,
 ) (*goEnv, error) {
+	if _, hasGo := goVersion(); !hasGo {
+		return nil, ErrNoGoToolchain
+	}
+
+	if !hasGit() {
+		return nil, ErrNoGit
+	}
+
 	env := map[string]string{}
 	env["GOOS"] = platform.OS
 	env["GOARCH"] = platform.Arch
@@ -67,8 +76,8 @@ func newGoEnv(
 	}, nil
 }
 
-func (e goEnv) runCommand(ctx context.Context, timeout time.Duration, command string, args ...string) error {
-	cmd := exec.Command(command, args...)
+func (e goEnv) runGo(ctx context.Context, timeout time.Duration, args ...string) error {
+	cmd := exec.Command("go", args...)
 
 	cmd.Env = e.env
 	cmd.Dir = e.workDir
@@ -127,7 +136,7 @@ func (e goEnv) runCommand(ctx context.Context, timeout time.Duration, command st
 func (e goEnv) modInit(ctx context.Context) error {
 	// initialize the go module
 	// TODO: change magic constant in timeout
-	err := e.runCommand(ctx, 10*time.Second, "go", "mod", "init", "k6")
+	err := e.runGo(ctx, 10*time.Second, "mod", "init", "k6")
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrSettingGoEnv, err)
 	}
@@ -137,7 +146,7 @@ func (e goEnv) modInit(ctx context.Context) error {
 
 // tidy the module to ensure go.mod will not have versions such as `latest`
 func (e goEnv) modTidy(ctx context.Context) error {
-	err := e.runCommand(ctx, e.opts.TimeoutGet, "go", "mod", "tidy", "-compat=1.17")
+	err := e.runGo(ctx, e.opts.TimeoutGet, "mod", "tidy", "-compat=1.17")
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrResolvingDependency, err)
 	}
@@ -152,7 +161,7 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 	} else {
 		mod += "@latest"
 	}
-	err := e.runCommand(ctx, e.opts.TimeoutGet, "go", "mod", "edit", "-require", mod)
+	err := e.runGo(ctx, e.opts.TimeoutGet, "mod", "edit", "-require", mod)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrResolvingDependency, err)
 	}
@@ -162,7 +171,7 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 
 func (e goEnv) modReplace(ctx context.Context, modulePath, replaceRepo string) error {
 	replace := fmt.Sprintf("%s=%s", modulePath, replaceRepo)
-	err := e.runCommand(ctx, e.opts.TimeoutGet, "go", "mod", "edit", "-replace", replace)
+	err := e.runGo(ctx, e.opts.TimeoutGet, "mod", "edit", "-replace", replace)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrResolvingDependency, err)
 	}
@@ -181,7 +190,7 @@ func (e goEnv) compile(ctx context.Context, outPath string) error {
 		e.opts.Cgo = true
 	}
 	args := append([]string{"build"}, buildFlags...)
-	err := e.runCommand(ctx, e.opts.TimeoutGet, "go", args...)
+	err := e.runGo(ctx, e.opts.TimeoutGet, args...)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrCompiling, err)
 	}
@@ -196,4 +205,38 @@ func mapToSlice(m map[string]string) []string {
 	}
 
 	return s
+}
+
+func goVersion() (string, bool) {
+	cmd, err := exec.LookPath("go")
+	if err != nil {
+		return "", false
+	}
+
+	out, err := exec.Command(cmd, "version").Output() //nolint:gosec
+	if err != nil {
+		return "", false
+	}
+
+	pre := []byte("go")
+
+	fields := bytes.SplitN(out, []byte{' '}, 4)
+	if len(fields) < 4 || !bytes.Equal(fields[0], pre) || !bytes.HasPrefix(fields[2], pre) {
+		return "", false
+	}
+
+	ver := string(bytes.TrimPrefix(fields[2], pre))
+
+	return ver, true
+}
+
+func hasGit() bool {
+	cmd, err := exec.LookPath("git")
+	if err != nil {
+		return false
+	}
+
+	_, err = exec.Command(cmd, "version").Output() //nolint:gosec
+
+	return err == nil
 }

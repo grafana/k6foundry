@@ -2,13 +2,11 @@
 package k6build
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -77,14 +75,6 @@ type goModTemplateContext struct {
 }
 
 func NewNativeBuilder(_ context.Context, opts BuildOpts) (Builder, error) {
-	if _, hasGo := goVersion(); !hasGo {
-		return nil, ErrNoGoToolchain
-	}
-
-	if !hasGit() {
-		return nil, ErrNoGit
-	}
-
 	return &nativeBuilder{
 		opts: opts,
 	}, nil
@@ -218,40 +208,6 @@ func (e *goEnv) addMods(ctx context.Context, path string, mods []Module) error {
 	}
 
 	return nil
-}
-
-func goVersion() (string, bool) {
-	cmd, err := exec.LookPath("go")
-	if err != nil {
-		return "", false
-	}
-
-	out, err := exec.Command(cmd, "version").Output() //nolint:gosec
-	if err != nil {
-		return "", false
-	}
-
-	pre := []byte("go")
-
-	fields := bytes.SplitN(out, []byte{' '}, 4)
-	if len(fields) < 4 || !bytes.Equal(fields[0], pre) || !bytes.HasPrefix(fields[2], pre) {
-		return "", false
-	}
-
-	ver := string(bytes.TrimPrefix(fields[2], pre))
-
-	return ver, true
-}
-
-func hasGit() bool {
-	cmd, err := exec.LookPath("git")
-	if err != nil {
-		return false
-	}
-
-	_, err = exec.Command(cmd, "version").Output() //nolint:gosec
-
-	return err == nil
 }
 
 // returns the modulePath with the major component of moduleVersion added,
