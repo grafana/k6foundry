@@ -100,11 +100,11 @@ func addPackageVersion(
 			return fmt.Errorf("writing latest version: %w", err)
 		}
 	}
+
 	return nil
 }
 
 func TestBuild (t *testing.T) {
-
 	// create modules for tests
 	pkgs := []struct{
 		pkgSrc string
@@ -152,6 +152,12 @@ func TestBuild (t *testing.T) {
 			expectError: nil,
 		},
 		{
+			title:       "compile k6 missing version (v0.3.0)",
+			k6Version:   "v0.3.0",
+			mods:        []Module{},
+			expectError: ErrResolvingDependency,
+		},
+		{
 			title:       "compile k6 latest",
 			k6Version:   "latest",
 			mods:        []Module{},
@@ -165,7 +171,14 @@ func TestBuild (t *testing.T) {
 			},
 			expectError: nil,
 		},
-
+		{
+			title:       "compile k6 v0.1.0 with missing k6ext (v0.2.0)",
+			k6Version:   "v0.2.0",
+			mods:        []Module{
+				{PackagePath: "go.k6.io/k6ext", Version: "v0.2.0"},
+			},
+			expectError: ErrResolvingDependency,
+		},
 	}
 
 	for _, tc := range testCases{
@@ -203,7 +216,7 @@ func TestBuild (t *testing.T) {
 				t.Fatalf("expected %v got %v", tc.expectError, err)
 			}
 
-			if outFile.Len() == 0 {
+			if tc.expectError == nil && outFile.Len() == 0 {
 				t.Fatal("out file is empty")
 			}
 		})

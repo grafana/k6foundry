@@ -2,11 +2,19 @@ package k6build
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"time"
+)
+
+var (
+	ErrCompiling = errors.New("compiling")
+	ErrExecutingGoCommand = errors.New("executing go command")
+	ErrResolvingDependency = errors.New("resolving dependency")
+	ErrSettingGoEnv = errors.New("setting go environment")
 )
 
 type goEnv struct {
@@ -59,17 +67,15 @@ func newGoEnv(
 	}, nil
 }
 
-func (e goEnv) newCommand(command string, args ...string) *exec.Cmd {
+func (e goEnv) runCommand(ctx context.Context, timeout time.Duration, command string, args ...string) error {
 	cmd := exec.Command(command, args...)
 
 	cmd.Env = e.env
 	cmd.Dir = e.workDir
+
 	cmd.Stdout = e.stdout
 	cmd.Stderr = e.stderr
-	return cmd
-}
 
-func (e goEnv) runCommand(ctx context.Context, cmd *exec.Cmd, timeout time.Duration) error {
 	if timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, timeout)
@@ -79,7 +85,7 @@ func (e goEnv) runCommand(ctx context.Context, cmd *exec.Cmd, timeout time.Durat
 	// start the command; if it fails to start, report error immediately
 	err := cmd.Start()
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %s", ErrExecutingGoCommand, err)
 	}
 
 	// wait for the command in a goroutine; the reason for this is
@@ -90,7 +96,11 @@ func (e goEnv) runCommand(ctx context.Context, cmd *exec.Cmd, timeout time.Durat
 	// evaluation from the `case` statement.
 	cmdErrChan := make(chan error)
 	go func() {
-		cmdErrChan <- cmd.Wait()
+		cmdErr := cmd.Wait() 
+		if cmdErr != nil {
+			cmdErr = fmt.Errorf("%w: %s", ErrExecutingGoCommand, err)
+		}
+		cmdErrChan <- cmdErr
 	}()
 
 	// unblock either when the command finishes, or when the done
@@ -105,6 +115,7 @@ func (e goEnv) runCommand(ctx context.Context, cmd *exec.Cmd, timeout time.Durat
 		// context; presumably, the OS also sent the signal
 		// to the child process, so wait for it to die
 		select {
+		//TODO: check this magic timeout
 		case <-time.After(15 * time.Second):
 			_ = cmd.Process.Kill()
 		case <-cmdErrChan:
@@ -115,16 +126,23 @@ func (e goEnv) runCommand(ctx context.Context, cmd *exec.Cmd, timeout time.Durat
 
 func (e goEnv) modInit(ctx context.Context) error {
 	// initialize the go module
-	cmd := e.newCommand("go", "mod", "init", "k6")
 	// TODO: change magic constant in timeout
-	return e.runCommand(ctx, cmd, 10*time.Second)
+	err := e.runCommand(ctx, 10*time.Second, "go", "mod", "init", "k6")
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrSettingGoEnv, err)
+	}
 
+	return nil
 }
 
 // tidy the module to ensure go.mod will not have versions such as `latest`
 func (e goEnv) modTidy(ctx context.Context) error {
-	tidyCmd := e.newCommand("go", "mod", "tidy", "-compat=1.17")
-	return e.runCommand(ctx, tidyCmd, e.opts.TimeoutGet)
+	err := e.runCommand(ctx, e.opts.TimeoutGet, "go", "mod", "tidy", "-compat=1.17")
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrResolvingDependency, err)
+	}
+
+	return nil
 }
 
 func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string) error {
@@ -134,20 +152,22 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 	} else {
 		mod += "@latest"
 	}
-	cmd := e.newCommand("go", "mod", "edit", "-require", mod)
-	err := e.runCommand(ctx, cmd, e.opts.TimeoutGet)
+	err := e.runCommand(ctx, e.opts.TimeoutGet, "go", "mod", "edit", "-require", mod)
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrResolvingDependency, err)
+	}
 
-	return err
+	return nil
 }
 
 func (e goEnv) modReplace(ctx context.Context, modulePath, replaceRepo string) error {
 	replace := fmt.Sprintf("%s=%s", modulePath, replaceRepo)
-	cmd := e.newCommand("go", "mod", "edit", "-replace", replace)
-	err := e.runCommand(ctx, cmd, e.opts.TimeoutGet)
+	err := e.runCommand(ctx, e.opts.TimeoutGet, "go", "mod", "edit", "-replace", replace)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %s", ErrResolvingDependency, err)
 	}
-	return e.modTidy(ctx)
+
+	return nil
 }
 
 func (e goEnv) compile(ctx context.Context, outPath string) error {
@@ -161,9 +181,10 @@ func (e goEnv) compile(ctx context.Context, outPath string) error {
 		e.opts.Cgo = true
 	}
 	args := append([]string{"build"}, buildFlags...)
-	cmd := e.newCommand("go", args...)
-
-	err := e.runCommand(ctx, cmd, e.opts.TimeoutGet)
+	err := e.runCommand(ctx, e.opts.TimeoutGet, "go", args...)
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrCompiling, err)
+	}
 
 	return err
 }
@@ -173,5 +194,6 @@ func mapToSlice(m map[string]string) []string {
 	for k, v := range m {
 		s = append(s, fmt.Sprintf("%s=%s", k, v))
 	}
+
 	return s
 }
