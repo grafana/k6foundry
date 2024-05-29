@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/mod/semver"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/mod/semver"
 )
 
 const (
@@ -47,7 +47,7 @@ var (
 )
 
 type nativeBuilder struct {
-	opts      BuildOpts
+	opts BuildOpts
 }
 
 type GoOpts struct {
@@ -106,11 +106,10 @@ func (b *nativeBuilder) Build(
 		workDir,
 		b.opts.GoOpts,
 		platform,
-		//TODO: allow redirecting output
+		// TODO: allow redirecting output
 		os.Stdout,
 		os.Stderr,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -140,7 +139,7 @@ func (b *nativeBuilder) Build(
 	}
 
 	logrus.Info("Build complete")
-	k6File, err := os.Open(k6Path)
+	k6File, err := os.Open(k6Path) //nolint:gosec
 	if err != nil {
 		return err
 	}
@@ -207,11 +206,11 @@ func (e *goEnv) addMods(ctx context.Context, path string, mods []Module) error {
 
 // returns the modulePath with the major component of moduleVersion added,
 // if it is a valid semantic version and is > 1
-// Examples 
-//  path="foo" and version="v1.0.0" returns "foo"
-//  path="foo" and version="v2.0.0" returns "foo/v2"
-//  path="foo/v2" and version="v3.0.0" returns an error
-//  path="foo" and version="latest" returns "foo"
+// Examples:
+// - path="foo" and version="v1.0.0" returns "foo"
+// - path="foo" and version="v2.0.0" returns "foo/v2"
+// - path="foo/v2" and version="v3.0.0" returns an error
+// - path="foo" and version="latest" returns "foo"
 func versionedModulePath(modulePath, moduleVersion string) (string, error) {
 	// if not is a semantic version return (could have been a commit SHA or 'latest')
 	if !semver.IsValid(moduleVersion) {
@@ -221,7 +220,7 @@ func versionedModulePath(modulePath, moduleVersion string) (string, error) {
 
 	// if the module path has a major version at the end, check for inconsistencies
 	if moduleVersionRegexp.MatchString(modulePath) {
-		modPathVer:= filepath.Base(modulePath)
+		modPathVer := filepath.Base(modulePath)
 		if modPathVer != major {
 			return "", fmt.Errorf("versioned module path %q and requested major version (%s) conflicts", modulePath, major)
 		}

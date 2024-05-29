@@ -1,3 +1,4 @@
+//nolint:forbidigo,gosec
 package k6build
 
 import (
@@ -9,15 +10,14 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
-
 	"testing"
+	"time"
 
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/zip"
 )
 
-const 	verInfoTemplate = "{\"Version\":\"%s\",\"Time\":\"%s\"}"
+const verInfoTemplate = "{\"Version\":\"%s\",\"Time\":\"%s\"}"
 
 // adds a package version to the mod cache from a source directory, in a way that makes it
 // compatible with the GOPROXY protocol (https://go.dev/ref/mod#goproxy-protocol)
@@ -35,28 +35,28 @@ func addPackageVersion(
 	cacheDir string,
 ) error {
 	packagePath := filepath.Join(cacheDir, pkg, "@v")
-	err := os.MkdirAll(packagePath, 0777)
+	err := os.MkdirAll(packagePath, 0o777)
 	if err != nil {
 		return fmt.Errorf("creating package dir: %w", err)
 	}
 
 	// create zip file
 	zipBuffer := &bytes.Buffer{}
-	version :=module.Version{Path: pkg, Version: pkgVersion}
+	version := module.Version{Path: pkg, Version: pkgVersion}
 	err = zip.CreateFromDir(zipBuffer, version, pkgSrc)
 	if err != nil {
 		return fmt.Errorf("creating zip file: %w", err)
 	}
 
 	zipFile := filepath.Join(packagePath, pkgVersion+".zip")
-	err = os.WriteFile(zipFile,  zipBuffer.Bytes(), 0666)
+	err = os.WriteFile(zipFile, zipBuffer.Bytes(), 0o666)
 	if err != nil {
 		return fmt.Errorf("creating zip file: %w", err)
 	}
 	// create version info
 	infoFile := filepath.Join(packagePath, pkgVersion+".info")
 	verInfo := fmt.Sprintf(verInfoTemplate, pkgVersion, time.Now().Format(time.RFC3339))
-	err = os.WriteFile(infoFile,  []byte(verInfo), 0666)
+	err = os.WriteFile(infoFile, []byte(verInfo), 0o666)
 	if err != nil {
 		return fmt.Errorf("creating info file: %w", err)
 	}
@@ -67,7 +67,7 @@ func addPackageVersion(
 		return fmt.Errorf("reading go.mod: %w", err)
 	}
 	modFile := filepath.Join(packagePath, pkgVersion+".mod")
-	err = os.WriteFile(modFile, mod, 0644)
+	err = os.WriteFile(modFile, mod, 0o644)
 	if err != nil {
 		return fmt.Errorf("creating mod file: %w", err)
 	}
@@ -86,7 +86,7 @@ func addPackageVersion(
 	}
 
 	listFile := filepath.Join(packagePath, "list")
-	err = os.WriteFile(listFile,  []byte(strings.Join(list, "\n")), 0644)
+	err = os.WriteFile(listFile, []byte(strings.Join(list, "\n")), 0o644)
 	if err != nil {
 		return fmt.Errorf("creating list file: %w", err)
 	}
@@ -95,7 +95,7 @@ func addPackageVersion(
 	latestFile := filepath.Join(cacheDir, pkg, "@latest")
 	latestVersion, err := os.ReadFile(latestFile)
 	if errors.Is(err, os.ErrNotExist) || pkgVersion > string(latestVersion) {
-		err = os.WriteFile(latestFile, []byte(verInfo), 0644)
+		err = os.WriteFile(latestFile, []byte(verInfo), 0o644)
 		if err != nil {
 			return fmt.Errorf("writing latest version: %w", err)
 		}
@@ -104,10 +104,12 @@ func addPackageVersion(
 	return nil
 }
 
-func TestBuild (t *testing.T) {
+func TestBuild(t *testing.T) {
+	t.Parallel()
+
 	// create modules for tests
-	pkgs := []struct{
-		pkgSrc string
+	pkgs := []struct {
+		pkgSrc  string
 		pkgPath string
 		version string
 	}{
@@ -139,7 +141,7 @@ func TestBuild (t *testing.T) {
 		}
 	}
 
-	testCases := []struct{
+	testCases := []struct {
 		title       string
 		k6Version   string
 		mods        []Module
@@ -164,39 +166,40 @@ func TestBuild (t *testing.T) {
 			expectError: nil,
 		},
 		{
-			title:       "compile k6 v0.1.0 with k6ext v0.1.0",
-			k6Version:   "v0.1.0",
-			mods:        []Module{
+			title:     "compile k6 v0.1.0 with k6ext v0.1.0",
+			k6Version: "v0.1.0",
+			mods: []Module{
 				{PackagePath: "go.k6.io/k6ext", Version: "v0.1.0"},
 			},
 			expectError: nil,
 		},
 		{
-			title:       "compile k6 v0.1.0 with missing k6ext (v0.2.0)",
-			k6Version:   "v0.2.0",
-			mods:        []Module{
+			title:     "compile k6 v0.1.0 with missing k6ext (v0.2.0)",
+			k6Version: "v0.2.0",
+			mods: []Module{
 				{PackagePath: "go.k6.io/k6ext", Version: "v0.2.0"},
 			},
 			expectError: ErrResolvingDependency,
 		},
 	}
 
-	for _, tc := range testCases{
+	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.title, func(t *testing.T) {
+			t.Parallel()
+
 			platform, _ := ParsePlatform("linux/amd64")
 
-			gocache, err := os.MkdirTemp(t.TempDir(), "gocache")
+			gocache, _ := os.MkdirTemp(t.TempDir(), "gocache")
 
 			opts := BuildOpts{
 				GoOpts: GoOpts{
-					CopyEnv: true,
-					GoProxy: fmt.Sprintf("file://%s", goproxy),
+					CopyEnv:   true,
+					GoProxy:   fmt.Sprintf("file://%s", goproxy),
 					GoNoProxy: "none",
 					GoPrivate: "go.k6.io",
-					GoCache: gocache,
+					GoCache:   gocache,
 				},
-
 			}
 			b, err := NewNativeBuilder(context.Background(), opts)
 			if err != nil {

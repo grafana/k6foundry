@@ -1,6 +1,4 @@
 package cmd
 
-
 func Execute() {
-
 }

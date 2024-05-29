@@ -1,3 +1,4 @@
+//nolint:revive
 package k6build
 
 import (
@@ -12,10 +13,10 @@ import (
 )
 
 var (
-	ErrCompiling = errors.New("compiling")
-	ErrExecutingGoCommand = errors.New("executing go command")
+	ErrCompiling           = errors.New("compiling")
+	ErrExecutingGoCommand  = errors.New("executing go command")
 	ErrResolvingDependency = errors.New("resolving dependency")
-	ErrSettingGoEnv = errors.New("setting go environment")
+	ErrSettingGoEnv        = errors.New("setting go environment")
 )
 
 type goEnv struct {
@@ -64,7 +65,7 @@ func newGoEnv(
 
 	cmdEnv := []string{}
 	if opts.CopyEnv {
-		cmdEnv = os.Environ()
+		cmdEnv = os.Environ() //nolint:forbidigo
 	}
 	return &goEnv{
 		env:      append(cmdEnv, mapToSlice(env)...),
@@ -94,7 +95,7 @@ func (e goEnv) runGo(ctx context.Context, timeout time.Duration, args ...string)
 	// start the command; if it fails to start, report error immediately
 	err := cmd.Start()
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrExecutingGoCommand, err)
+		return fmt.Errorf("%w: %s", ErrExecutingGoCommand, err) //nolint:errorlint
 	}
 
 	// wait for the command in a goroutine; the reason for this is
@@ -105,9 +106,9 @@ func (e goEnv) runGo(ctx context.Context, timeout time.Duration, args ...string)
 	// evaluation from the `case` statement.
 	cmdErrChan := make(chan error)
 	go func() {
-		cmdErr := cmd.Wait() 
+		cmdErr := cmd.Wait()
 		if cmdErr != nil {
-			cmdErr = fmt.Errorf("%w: %s", ErrExecutingGoCommand, err)
+			cmdErr = fmt.Errorf("%w: %s", ErrExecutingGoCommand, err) //nolint:errorlint
 		}
 		cmdErrChan <- cmdErr
 	}()
@@ -124,7 +125,7 @@ func (e goEnv) runGo(ctx context.Context, timeout time.Duration, args ...string)
 		// context; presumably, the OS also sent the signal
 		// to the child process, so wait for it to die
 		select {
-		//TODO: check this magic timeout
+		// TODO: check this magic timeout
 		case <-time.After(15 * time.Second):
 			_ = cmd.Process.Kill()
 		case <-cmdErrChan:
@@ -138,7 +139,7 @@ func (e goEnv) modInit(ctx context.Context) error {
 	// TODO: change magic constant in timeout
 	err := e.runGo(ctx, 10*time.Second, "mod", "init", "k6")
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrSettingGoEnv, err)
+		return fmt.Errorf("%w: %s", ErrSettingGoEnv, err) //nolint:errorlint
 	}
 
 	return nil
@@ -148,7 +149,7 @@ func (e goEnv) modInit(ctx context.Context) error {
 func (e goEnv) modTidy(ctx context.Context) error {
 	err := e.runGo(ctx, e.opts.TimeoutGet, "mod", "tidy", "-compat=1.17")
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrResolvingDependency, err)
+		return fmt.Errorf("%w: %s", ErrResolvingDependency, err) //nolint:errorlint
 	}
 
 	return nil
@@ -163,7 +164,7 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 	}
 	err := e.runGo(ctx, e.opts.TimeoutGet, "mod", "edit", "-require", mod)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrResolvingDependency, err)
+		return fmt.Errorf("%w: %s", ErrResolvingDependency, err) //nolint:errorlint
 	}
 
 	return nil
@@ -182,7 +183,7 @@ func (e goEnv) compile(ctx context.Context, outPath string) error {
 	args := append([]string{"build"}, buildFlags...)
 	err := e.runGo(ctx, e.opts.TimeoutGet, args...)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrCompiling, err)
+		return fmt.Errorf("%w: %s", ErrCompiling, err) //nolint:errorlint
 	}
 
 	return err
