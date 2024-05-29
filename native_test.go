@@ -203,15 +203,16 @@ func TestBuild(t *testing.T) {
 
 			platform, _ := ParsePlatform("linux/amd64")
 
-			gocache, _ := os.MkdirTemp(t.TempDir(), "gocache")
+			modcache := filepath.Join(t.TempDir(), "modcache")
+			 _ = os.Mkdir(modcache, 0755)
 
 			opts := BuildOpts{
 				GoOpts: GoOpts{
-					CopyEnv:   true,
-					GoProxy:   fmt.Sprintf("file://%s", goproxy),
-					GoNoProxy: "none",
-					GoPrivate: "go.k6.io",
-					GoCache:   gocache,
+					CopyEnv:    true,
+					GoProxy:    fmt.Sprintf("file://%s", goproxy),
+					GoNoProxy:  "none",
+					GoPrivate:  "go.k6.io",
+					GoModCache: modcache,
 				},
 				SkipCleanup: true,
 			}
@@ -237,6 +238,7 @@ func TestBuild(t *testing.T) {
 			if tc.expectError == nil && outFile.Len() == 0 {
 				t.Fatal("out file is empty")
 			}
+
 		})
 	}
 }
