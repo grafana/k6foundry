@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -35,7 +36,7 @@ func addPackageVersion(
 	cacheDir string,
 ) error {
 	packagePath := filepath.Join(cacheDir, pkg, "@v")
-	err := os.MkdirAll(packagePath, 0o777)
+	err := os.MkdirAll(packagePath, 0o755)
 	if err != nil {
 		return fmt.Errorf("creating package dir: %w", err)
 	}
@@ -49,14 +50,14 @@ func addPackageVersion(
 	}
 
 	zipFile := filepath.Join(packagePath, pkgVersion+".zip")
-	err = os.WriteFile(zipFile, zipBuffer.Bytes(), 0o666)
+	err = os.WriteFile(zipFile, zipBuffer.Bytes(), 0o644)
 	if err != nil {
 		return fmt.Errorf("creating zip file: %w", err)
 	}
 	// create version info
 	infoFile := filepath.Join(packagePath, pkgVersion+".info")
 	verInfo := fmt.Sprintf(verInfoTemplate, pkgVersion, time.Now().Format(time.RFC3339))
-	err = os.WriteFile(infoFile, []byte(verInfo), 0o666)
+	err = os.WriteFile(infoFile, []byte(verInfo), 0o644)
 	if err != nil {
 		return fmt.Errorf("creating info file: %w", err)
 	}
@@ -135,16 +136,27 @@ func TestBuild(t *testing.T) {
 		},
 	}
 
-	goproxy, err := os.MkdirTemp(t.TempDir(), "goproxy")
-	if err != nil {
-		t.Fatalf("setup %v", err)
-	}
+	goproxy := filepath.Join(t.TempDir(), "goproxy")
+	_ = os.Mkdir(goproxy, 0777)
+
 	for _, pkg := range pkgs {
-		err = addPackageVersion(pkg.pkgPath, pkg.version, pkg.pkgSrc, goproxy)
+		err := addPackageVersion(pkg.pkgPath, pkg.version, pkg.pkgSrc, goproxy)
 		if err != nil {
 			t.Fatalf("setup %v", err)
 		}
 	}
+
+	// create mod cache
+	modcache := filepath.Join(t.TempDir(), "modcache")
+	_ = os.Mkdir(modcache, 0777)
+
+	// deleting the modcache dir would fail because files are write protected, so we must
+	// use go clean command
+	t.Cleanup( func(){
+	       c := exec.Command("go", "clean", "-modcache")
+	       c.Env = []string{"GOMODCACHE="+modcache}
+	       c.Run()
+	})
 
 	testCases := []struct {
 		title       string
@@ -203,9 +215,6 @@ func TestBuild(t *testing.T) {
 
 			platform, _ := ParsePlatform("linux/amd64")
 
-			modcache := filepath.Join(t.TempDir(), "modcache")
-			 _ = os.Mkdir(modcache, 0755)
-
 			opts := BuildOpts{
 				GoOpts: GoOpts{
 					CopyEnv:    true,
@@ -214,7 +223,6 @@ func TestBuild(t *testing.T) {
 					GoPrivate:  "go.k6.io",
 					GoModCache: modcache,
 				},
-				SkipCleanup: true,
 			}
 
 			b, err := NewNativeBuilder(context.Background(), opts)
