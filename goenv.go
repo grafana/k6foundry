@@ -169,16 +169,6 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 	return nil
 }
 
-func (e goEnv) modReplace(ctx context.Context, modulePath, replaceRepo string) error {
-	replace := fmt.Sprintf("%s=%s", modulePath, replaceRepo)
-	err := e.runGo(ctx, e.opts.TimeoutGet, "mod", "edit", "-replace", replace)
-	if err != nil {
-		return fmt.Errorf("%w: %s", ErrResolvingDependency, err)
-	}
-
-	return nil
-}
-
 func (e goEnv) compile(ctx context.Context, outPath string) error {
 	buildFlags := []string{
 		"-o", outPath,

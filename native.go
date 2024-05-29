@@ -69,11 +69,6 @@ type BuildOpts struct {
 	SkipCleanup bool
 }
 
-type goModTemplateContext struct {
-	K6Module string
-	Imports  []string
-}
-
 func NewNativeBuilder(_ context.Context, opts BuildOpts) (Builder, error) {
 	return &nativeBuilder{
 		opts: opts,
