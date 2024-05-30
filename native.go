@@ -115,8 +115,7 @@ func (b *nativeBuilder) Build(
 		return err
 	}
 
-	k6Mod := Module{PackagePath: defaultK6ModulePath, Version: k6Version}
-	err = buildEnv.addMod(ctx, k6Mod)
+	err = buildEnv.addMod(ctx, defaultK6ModulePath, k6Version)
 	if err != nil {
 		return err
 	}
@@ -128,7 +127,7 @@ func (b *nativeBuilder) Build(
 			return err
 		}
 
-		err = buildEnv.addMod(ctx, m)
+		err = buildEnv.addMod(ctx, m.PackagePath, m.Version)
 		if err != nil {
 			return err
 		}

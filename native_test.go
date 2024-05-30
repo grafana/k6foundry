@@ -137,7 +137,7 @@ func TestBuild(t *testing.T) {
 	}
 
 	goproxy := filepath.Join(t.TempDir(), "goproxy")
-	_ = os.Mkdir(goproxy, 0777)
+	_ = os.Mkdir(goproxy, 0o777)
 
 	for _, pkg := range pkgs {
 		err := addPackageVersion(pkg.pkgPath, pkg.version, pkg.pkgSrc, goproxy)
@@ -148,14 +148,14 @@ func TestBuild(t *testing.T) {
 
 	// create mod cache
 	modcache := filepath.Join(t.TempDir(), "modcache")
-	_ = os.Mkdir(modcache, 0777)
+	_ = os.Mkdir(modcache, 0o777)
 
 	// deleting the modcache dir would fail because files are write protected, so we must
 	// use go clean command
-	t.Cleanup( func(){
-	       c := exec.Command("go", "clean", "-modcache")
-	       c.Env = []string{"GOMODCACHE="+modcache}
-	       c.Run()
+	t.Cleanup(func() {
+		c := exec.Command("go", "clean", "-modcache")
+		c.Env = []string{"GOMODCACHE=" + modcache}
+		_ = c.Run()
 	})
 
 	testCases := []struct {
@@ -202,7 +202,7 @@ func TestBuild(t *testing.T) {
 			title:     "compile k6 v0.1.0 with k6extV2 (v0.2.0)",
 			k6Version: "v0.2.0",
 			mods: []Module{
-				{PackagePath: "go.k6.io/k6ext", Version: "v2.0.0"},
+				{PackagePath: "go.k6.io/k6ext/v2", Version: "v2.0.0"},
 			},
 			expectError: nil,
 		},
@@ -246,7 +246,6 @@ func TestBuild(t *testing.T) {
 			if tc.expectError == nil && outFile.Len() == 0 {
 				t.Fatal("out file is empty")
 			}
-
 		})
 	}
 }

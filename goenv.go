@@ -80,20 +80,11 @@ func newGoEnv(
 }
 
 // TODO: use golang.org/x/mod/modfile package to manipulate the gomod programmatically
-func (e *goEnv) addMod(ctx context.Context, mod Module) error {
-	versionedPath, err := mod.VersionedPath()
-	if err != nil {
+func (e *goEnv) addMod(ctx context.Context, path string, version string) error {
+	if err := e.modRequire(ctx, path, version); err != nil {
 		return err
 	}
-
-	err = e.modRequire(ctx, versionedPath, mod.Version)
-	if err != nil {
-		return err
-	}
-
-	err = e.modTidy(ctx)
-
-	return err
+	return e.modTidy(ctx)
 }
 
 func (e goEnv) runGo(ctx context.Context, timeout time.Duration, args ...string) error {

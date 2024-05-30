@@ -51,7 +51,14 @@ func ParseModule(mod string) (Module, error) {
 		version = semver.Canonical(version)
 	}
 
-	if err := module.CheckPath(path); err != nil {
+	err := module.CheckPath(path)
+	if err != nil {
+		return Module{}, fmt.Errorf("%w: %q", ErrInvalidPath, mod)
+	}
+
+	// TODO: should we enforce the versioned path or reject if it not conformant?
+	path, err = versionedPath(path, version)
+	if err != nil {
 		return Module{}, fmt.Errorf("%w: %q", ErrInvalidPath, mod)
 	}
 
@@ -61,34 +68,34 @@ func ParseModule(mod string) (Module, error) {
 	}, nil
 }
 
-// VersionedPath returns the Module's PackagePath with the major component of moduleVersion added,
+// VersionedPath returns a module path with the major component of version added,
 // if it is a valid semantic version and is > 1
 // Examples:
 // - PackagePath="foo" and Version="v1.0.0" returns "foo"
 // - PackagePath="foo" and Version="v2.0.0" returns "foo/v2"
 // - PackagePath="foo/v2" and vVersion="v3.0.0" returns an error
 // - PackagePath="foo" and Version="latest" returns "foo"
-func (mod Module) VersionedPath() (string, error) {
+func versionedPath(path string, version string) (string, error) {
 	// if not is a semantic version return (could have been a commit SHA or 'latest')
-	if !semver.IsValid(mod.Version) {
-		return mod.PackagePath, nil
+	if !semver.IsValid(version) {
+		return path, nil
 	}
-	major := semver.Major(mod.Version)
+	major := semver.Major(version)
 
 	// if the module path has a major version at the end, check for inconsistencies
-	if moduleVersionRegexp.MatchString(mod.PackagePath) {
-		modPathVer := filepath.Base(mod.PackagePath)
+	if moduleVersionRegexp.MatchString(path) {
+		modPathVer := filepath.Base(path)
 		if modPathVer != major {
-			return "", fmt.Errorf("invalid version for versioned package %q: %q", mod.PackagePath, mod.Version)
+			return "", fmt.Errorf("invalid version for versioned package %q: %q", path, version)
 		}
-		return mod.PackagePath, nil
+		return path, nil
 	}
 
 	// if module path does not specify major version, add it if > 1
 	switch major {
 	case "v0", "v1":
-		return mod.PackagePath, nil
+		return path, nil
 	default:
-		return filepath.Join(mod.PackagePath, major), nil
+		return filepath.Join(path, major), nil
 	}
 }
