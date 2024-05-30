@@ -118,7 +118,7 @@ func (e goEnv) runGo(ctx context.Context, timeout time.Duration, args ...string)
 	go func() {
 		cmdErr := cmd.Wait()
 		if cmdErr != nil {
-			cmdErr = fmt.Errorf("%w: %s", ErrExecutingGoCommand, err.Error())
+			cmdErr = fmt.Errorf("%w: %s", ErrExecutingGoCommand, cmdErr.Error())
 		}
 		cmdErrChan <- cmdErr
 	}()
@@ -183,7 +183,7 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 func (e goEnv) compile(ctx context.Context, outPath string) error {
 	buildFlags := []string{
 		"-o", outPath,
-		//	"-ldflags=\"-w -s\"",
+		//	"-ldflags='-w -s'",
 		"-trimpath",
 	}
 	if e.opts.RaceDetector {
