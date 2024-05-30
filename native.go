@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -37,19 +36,6 @@ func main() {
 
 type nativeBuilder struct {
 	opts BuildOpts
-}
-
-type GoOpts struct {
-	CopyEnv      bool
-	Cgo          bool
-	GoCache      string
-	GoModCache   string
-	GoProxy      string
-	GoNoProxy    string
-	GoPrivate    string
-	TimeoutGet   time.Duration
-	TimeoutBuild time.Duration
-	RaceDetector bool
 }
 
 type BuildOpts struct {

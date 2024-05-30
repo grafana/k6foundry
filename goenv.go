@@ -21,6 +21,18 @@ var (
 	ErrSettingGoEnv        = errors.New("setting go environment")
 )
 
+type GoOpts struct {
+	CopyEnv      bool
+	Cgo          bool
+	GoCache      string
+	GoModCache   string
+	GoProxy      string
+	GoNoProxy    string
+	GoPrivate    string
+	TimeoutGet   time.Duration
+	TimeoutBuild time.Duration
+}
+
 type goEnv struct {
 	env      []string
 	workDir  string
@@ -180,17 +192,8 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 	return nil
 }
 
-func (e goEnv) compile(ctx context.Context, outPath string) error {
-	buildFlags := []string{
-		"-o", outPath,
-		//	"-ldflags='-w -s'",
-		"-trimpath",
-	}
-	if e.opts.RaceDetector {
-		buildFlags = append(buildFlags, "-race")
-		e.opts.Cgo = true
-	}
-	args := append([]string{"build"}, buildFlags...)
+func (e goEnv) compile(ctx context.Context, outPath string, buildFlags...string) error {
+	args := append([]string{"build", "-o", outPath}, buildFlags...)
 	err := e.runGo(ctx, e.opts.TimeoutGet, args...)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrCompiling, err.Error())
