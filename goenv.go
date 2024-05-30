@@ -105,7 +105,7 @@ func (e goEnv) runGo(ctx context.Context, timeout time.Duration, args ...string)
 	// start the command; if it fails to start, report error immediately
 	err := cmd.Start()
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrExecutingGoCommand, err) //nolint:errorlint
+		return fmt.Errorf("%w: %s", ErrExecutingGoCommand, err.Error())
 	}
 
 	// wait for the command in a goroutine; the reason for this is
@@ -118,7 +118,7 @@ func (e goEnv) runGo(ctx context.Context, timeout time.Duration, args ...string)
 	go func() {
 		cmdErr := cmd.Wait()
 		if cmdErr != nil {
-			cmdErr = fmt.Errorf("%w: %s", ErrExecutingGoCommand, err) //nolint:errorlint
+			cmdErr = fmt.Errorf("%w: %s", ErrExecutingGoCommand, err.Error())
 		}
 		cmdErrChan <- cmdErr
 	}()
@@ -149,7 +149,7 @@ func (e goEnv) modInit(ctx context.Context) error {
 	// TODO: change magic constant in timeout
 	err := e.runGo(ctx, 10*time.Second, "mod", "init", "k6")
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrSettingGoEnv, err) //nolint:errorlint
+		return fmt.Errorf("%w: %s", ErrSettingGoEnv, err.Error())
 	}
 
 	return nil
@@ -159,7 +159,7 @@ func (e goEnv) modInit(ctx context.Context) error {
 func (e goEnv) modTidy(ctx context.Context) error {
 	err := e.runGo(ctx, e.opts.TimeoutGet, "mod", "tidy", "-compat=1.17")
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrResolvingDependency, err) //nolint:errorlint
+		return fmt.Errorf("%w: %s", ErrResolvingDependency, err.Error())
 	}
 
 	return nil
@@ -174,7 +174,7 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 	}
 	err := e.runGo(ctx, e.opts.TimeoutGet, "mod", "edit", "-require", mod)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrResolvingDependency, err) //nolint:errorlint
+		return fmt.Errorf("%w: %s", ErrResolvingDependency, err.Error())
 	}
 
 	return nil
@@ -193,7 +193,7 @@ func (e goEnv) compile(ctx context.Context, outPath string) error {
 	args := append([]string{"build"}, buildFlags...)
 	err := e.runGo(ctx, e.opts.TimeoutGet, args...)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrCompiling, err) //nolint:errorlint
+		return fmt.Errorf("%w: %s", ErrCompiling, err.Error())
 	}
 
 	return err
