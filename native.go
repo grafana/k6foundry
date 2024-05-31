@@ -35,16 +35,16 @@ func main() {
 )
 
 type nativeBuilder struct {
-	opts BuildOpts
+	opts NativeBuilderOpts
 }
 
-type BuildOpts struct {
+type NativeBuilderOpts struct {
 	GoOpts
 	K6Repo      string
 	SkipCleanup bool
 }
 
-func NewNativeBuilder(_ context.Context, opts BuildOpts) (Builder, error) {
+func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error) {
 	return &nativeBuilder{
 		opts: opts,
 	}, nil
@@ -55,8 +55,8 @@ func (b *nativeBuilder) Build(
 	ctx context.Context,
 	platform Platform,
 	k6Version string,
-	mods []Module,
-	out io.Writer,
+	exts []Module,
+	binary io.Writer,
 ) error {
 	workDir, err := os.MkdirTemp(os.TempDir(), defaultWorkDir)
 	if err != nil {
@@ -106,8 +106,8 @@ func (b *nativeBuilder) Build(
 		return err
 	}
 
-	logrus.Info("importing modules")
-	for _, m := range mods {
+	logrus.Info("importing extensions")
+	for _, m := range exts {
 		err = b.createModuleImport(ctx, workDir, m)
 		if err != nil {
 			return err
@@ -131,7 +131,7 @@ func (b *nativeBuilder) Build(
 		return err
 	}
 
-	_, err = io.Copy(out, k6File)
+	_, err = io.Copy(binary, k6File)
 	if err != nil {
 		return fmt.Errorf("copying binary %w", err)
 	}

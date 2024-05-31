@@ -215,7 +215,7 @@ func TestBuild(t *testing.T) {
 
 			platform, _ := ParsePlatform("linux/amd64")
 
-			opts := BuildOpts{
+			opts := NativeBuilderOpts{
 				GoOpts: GoOpts{
 					CopyEnv:    true,
 					GoProxy:    fmt.Sprintf("file://%s", goproxy),

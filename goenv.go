@@ -22,15 +22,15 @@ var (
 )
 
 type GoOpts struct {
-	CopyEnv      bool
-	Cgo          bool
-	GoCache      string
-	GoModCache   string
-	GoProxy      string
-	GoNoProxy    string
-	GoPrivate    string
-	TimeoutGet   time.Duration
-	TimeoutBuild time.Duration
+	CopyEnv        bool
+	Cgo            bool
+	GoCache        string
+	GoModCache     string
+	GoProxy        string
+	GoNoProxy      string
+	GoPrivate      string
+	GoGetTimeout   time.Duration
+	GOBuildTimeout time.Duration
 }
 
 type goEnv struct {
@@ -169,7 +169,7 @@ func (e goEnv) modInit(ctx context.Context) error {
 
 // tidy the module to ensure go.mod will not have versions such as `latest`
 func (e goEnv) modTidy(ctx context.Context) error {
-	err := e.runGo(ctx, e.opts.TimeoutGet, "mod", "tidy", "-compat=1.17")
+	err := e.runGo(ctx, e.opts.GoGetTimeout, "mod", "tidy", "-compat=1.17")
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrResolvingDependency, err.Error())
 	}
@@ -184,7 +184,7 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 	} else {
 		mod += "@latest"
 	}
-	err := e.runGo(ctx, e.opts.TimeoutGet, "mod", "edit", "-require", mod)
+	err := e.runGo(ctx, e.opts.GoGetTimeout, "mod", "edit", "-require", mod)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrResolvingDependency, err.Error())
 	}
@@ -194,7 +194,7 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 
 func (e goEnv) compile(ctx context.Context, outPath string, buildFlags...string) error {
 	args := append([]string{"build", "-o", outPath}, buildFlags...)
-	err := e.runGo(ctx, e.opts.TimeoutGet, args...)
+	err := e.runGo(ctx, e.opts.GoGetTimeout, args...)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrCompiling, err.Error())
 	}

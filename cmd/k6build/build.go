@@ -16,7 +16,7 @@ k6build build -k v0.50.0 -d github.com/mostafa/xk6-kafka@v0.17.0
 
 func newBuildCmd() *cobra.Command {
 	var (
-		opts         k6build.BuildOpts
+		opts         k6build.NativeBuilderOpts
 		deps         []string
 		k6Version    string
 		platformFlag string
