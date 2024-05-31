@@ -13,23 +13,39 @@ import (
 )
 
 var (
+	// Error compiling binary
 	ErrCompiling           = errors.New("compiling")
+	// Error executing go command
 	ErrExecutingGoCommand  = errors.New("executing go command")
+	// Go toolchacin is not installed
 	ErrNoGoToolchain       = errors.New("go toolchain notfound")
+	// Git is not installed
 	ErrNoGit               = errors.New("git notfound")
+	// Error resolving dependency
 	ErrResolvingDependency = errors.New("resolving dependency")
+	// Error initiailizing go build environment
 	ErrSettingGoEnv        = errors.New("setting go environment")
 )
 
+// GoOpts defines the options for the go build environment
 type GoOpts struct {
-	CopyEnv        bool
-	Cgo            bool
-	GoCache        string
-	GoModCache     string
-	GoProxy        string
-	GoNoProxy      string
-	GoPrivate      string
-	GoGetTimeout   time.Duration
+	// Copy Environment variables to go build environment
+	CopyEnv bool
+	// Enable Cgo. Overrides values in environment if CopyEnv is true
+	Cgo bool
+	// Sets GOCACHE. Overrides values in environment if CopyEnv is true
+	GoCache string
+	// sets GOMODCACHE
+	GoModCache string
+	// Sets GOPROXY. Overrides values in environment if CopyEnv is true
+	GoProxy string
+	// Sets GONOPROXY. Overrides values in environment if CopyEnv is true
+	GoNoProxy string
+	// Sets GOPRIVATE. Overrides values in environment if CopyEnv is true
+	GoPrivate string
+	// Timeout for getting modules
+	GoGetTimeout time.Duration
+	// Timeout for building binary
 	GOBuildTimeout time.Duration
 }
 
@@ -192,7 +208,7 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 	return nil
 }
 
-func (e goEnv) compile(ctx context.Context, outPath string, buildFlags...string) error {
+func (e goEnv) compile(ctx context.Context, outPath string, buildFlags ...string) error {
 	args := append([]string{"build", "-o", outPath}, buildFlags...)
 	err := e.runGo(ctx, e.opts.GOBuildTimeout, args...)
 	if err != nil {

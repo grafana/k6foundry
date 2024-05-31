@@ -38,12 +38,14 @@ type nativeBuilder struct {
 	opts NativeBuilderOpts
 }
 
+// NativeBuilderOpts defines the options for the Native build environment
 type NativeBuilderOpts struct {
 	GoOpts
 	K6Repo      string
 	SkipCleanup bool
 }
 
+// NewNativeBuilder creates a new native build environment with the given options
 func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error) {
 	return &nativeBuilder{
 		opts: opts,
