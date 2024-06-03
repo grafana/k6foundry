@@ -35,7 +35,8 @@ func main() {
 )
 
 type nativeBuilder struct {
-	opts NativeBuilderOpts
+	NativeBuilderOpts
+	log *logrus.Logger
 }
 
 // NativeBuilderOpts defines the options for the Native build environment
@@ -43,12 +44,39 @@ type NativeBuilderOpts struct {
 	GoOpts
 	K6Repo      string
 	SkipCleanup bool
+	Stdout      io.Writer
+	Stderr      io.Writer
+	LogLevel    string
+	Verbose     bool
 }
 
 // NewNativeBuilder creates a new native build environment with the given options
 func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error) {
+	if opts.Stderr == nil {
+		opts.Stderr = io.Discard
+	}
+
+	if opts.Stdout == nil {
+		opts.Stdout = io.Discard
+	}
+
+	var err error
+	logLevel := logrus.ErrorLevel
+	if opts.LogLevel != "" {
+		logLevel, err = logrus.ParseLevel(opts.LogLevel)
+		if err != nil {
+			return nil, fmt.Errorf("parsing log level %w", err)
+		}
+	}
+	log := &logrus.Logger{
+		Out:       opts.Stderr,
+		Formatter: new(logrus.TextFormatter),
+		Level:     logLevel,
+	}
+
 	return &nativeBuilder{
-		opts: opts,
+		NativeBuilderOpts: opts,
+		log:               log,
 	}, nil
 }
 
@@ -66,38 +94,43 @@ func (b *nativeBuilder) Build(
 	}
 
 	defer func() {
-		if b.opts.SkipCleanup {
-			logrus.Infof("Skipping cleanup; leaving folder intact: %s", workDir)
+		if b.SkipCleanup {
+			b.log.Infof("Skipping cleanup; leaving folder intact: %s", workDir)
 			return
 		}
-		logrus.Infof("Cleaning up work directory: %s", workDir)
+		b.log.Infof("Cleaning up work directory: %s", workDir)
 		_ = os.RemoveAll(workDir)
 	}()
 
-	logrus.Info("Building new k6 binary (native)")
 	// prepare the build environment
+	b.log.Info("Building new k6 binary (native)")
 
 	k6Path := filepath.Join(workDir, "k6")
 
+	goOut := io.Discard
+	goErr := io.Discard
+	if b.Verbose {
+		goOut = b.Stdout
+		goErr = b.Stderr
+	}
 	buildEnv, err := newGoEnv(
 		workDir,
-		b.opts.GoOpts,
+		b.GoOpts,
 		platform,
-		// TODO: allow redirecting output
-		os.Stdout,
-		os.Stderr,
+		goOut,
+		goErr,
 	)
 	if err != nil {
 		return err
 	}
 
-	logrus.Info("Initializing Go module")
+	b.log.Info("Initializing Go module")
 	err = buildEnv.modInit(ctx)
 	if err != nil {
 		return err
 	}
 
-	logrus.Info("Creating k6 main")
+	b.log.Info("Creating k6 main")
 	err = b.createMain(ctx, workDir)
 	if err != nil {
 		return err
@@ -108,7 +141,7 @@ func (b *nativeBuilder) Build(
 		return err
 	}
 
-	logrus.Info("importing extensions")
+	b.log.Info("importing extensions")
 	for _, m := range exts {
 		err = b.createModuleImport(ctx, workDir, m)
 		if err != nil {
@@ -121,13 +154,13 @@ func (b *nativeBuilder) Build(
 		}
 	}
 
-	logrus.Info("Building k6")
+	b.log.Info("Building k6")
 	err = buildEnv.compile(ctx, k6Path)
 	if err != nil {
 		return err
 	}
 
-	logrus.Info("Build complete")
+	b.log.Info("Build complete")
 	k6File, err := os.Open(k6Path) //nolint:gosec
 	if err != nil {
 		return err

@@ -14,17 +14,17 @@ import (
 
 var (
 	// Error compiling binary
-	ErrCompiling           = errors.New("compiling")
+	ErrCompiling = errors.New("compiling")
 	// Error executing go command
-	ErrExecutingGoCommand  = errors.New("executing go command")
+	ErrExecutingGoCommand = errors.New("executing go command")
 	// Go toolchacin is not installed
-	ErrNoGoToolchain       = errors.New("go toolchain notfound")
+	ErrNoGoToolchain = errors.New("go toolchain notfound")
 	// Git is not installed
-	ErrNoGit               = errors.New("git notfound")
+	ErrNoGit = errors.New("git notfound")
 	// Error resolving dependency
 	ErrResolvingDependency = errors.New("resolving dependency")
 	// Error initiailizing go build environment
-	ErrSettingGoEnv        = errors.New("setting go environment")
+	ErrSettingGoEnv = errors.New("setting go environment")
 )
 
 // GoOpts defines the options for the go build environment

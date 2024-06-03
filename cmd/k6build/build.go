@@ -48,6 +48,10 @@ func newBuildCmd() *cobra.Command {
 				mods = append(mods, mod)
 			}
 
+			// set builder's output
+			opts.Stdout = os.Stdout //nolint:forbidigo
+			opts.Stderr = os.Stderr //nolint:forbidigo
+
 			b, err := k6build.NewNativeBuilder(ctx, opts)
 			if err != nil {
 				return err
@@ -79,5 +83,7 @@ func newBuildCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&platformFlag, "platform", "p", "", "target platform in the format os/arch")
 	cmd.Flags().StringVarP(&outPath, "output", "o", "k6", "path to output file")
 	cmd.Flags().BoolVar(&opts.CopyEnv, "copy-env", false, "copy current environment")
+	cmd.Flags().StringVar(&opts.LogLevel, "log-level", "error", "log level")
+	cmd.Flags().BoolVar(&opts.Verbose, "verbose", false, "verbose build output")
 	return cmd
 }
