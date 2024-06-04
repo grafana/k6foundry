@@ -1,41 +1,83 @@
-//nolint:forbidigo,revive
+//nolint:forbidigo,revive,funlen
 package k6build
 
 import (
-	"bytes"
 	"context"
-	"errors"
+	"fmt"
 	"io"
-	"log"
 	"os"
-	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/sirupsen/logrus"
-	"go.k6.io/xk6"
 )
 
-var (
-	ErrNoGoToolchain = errors.New("go toolchain notfound")
-	ErrNoGit         = errors.New("git notfound")
+const (
+	defaultK6ModulePath = "go.k6.io/k6"
+
+	defaultWorkDir = "k6build*"
+
+	mainModuleTemplate = `package main
+
+import (
+	k6cmd "%s/cmd"
+
+)
+
+func main() {
+	k6cmd.Execute()
+}
+`
+	modImportTemplate = `package main
+
+	import _ %q
+`
 )
 
 type nativeBuilder struct {
-	stderr    *os.File
-	logWriter *io.PipeWriter
-	logFlags  int
-	logOutput io.Writer
+	NativeBuilderOpts
+	log *logrus.Logger
 }
 
-func newNativeBuilder(_ context.Context) (Builder, error) {
-	if _, hasGo := goVersion(); !hasGo {
-		return nil, ErrNoGoToolchain
+// NativeBuilderOpts defines the options for the Native build environment
+type NativeBuilderOpts struct {
+	GoOpts
+	K6Repo      string
+	SkipCleanup bool
+	Stdout      io.Writer
+	Stderr      io.Writer
+	LogLevel    string
+	Verbose     bool
+}
+
+// NewNativeBuilder creates a new native build environment with the given options
+func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error) {
+	if opts.Stderr == nil {
+		opts.Stderr = io.Discard
 	}
 
-	if !hasGit() {
-		return nil, ErrNoGit
+	if opts.Stdout == nil {
+		opts.Stdout = io.Discard
 	}
 
-	return new(nativeBuilder), nil
+	var err error
+	logLevel := logrus.ErrorLevel
+	if opts.LogLevel != "" {
+		logLevel, err = logrus.ParseLevel(opts.LogLevel)
+		if err != nil {
+			return nil, fmt.Errorf("parsing log level %w", err)
+		}
+	}
+	log := &logrus.Logger{
+		Out:       opts.Stderr,
+		Formatter: new(logrus.TextFormatter),
+		Level:     logLevel,
+	}
+
+	return &nativeBuilder{
+		NativeBuilderOpts: opts,
+		log:               log,
+	}, nil
 }
 
 // Build builds a custom k6 binary for a target platform with the given dependencies into the out io.Writer
@@ -43,106 +85,114 @@ func (b *nativeBuilder) Build(
 	ctx context.Context,
 	platform Platform,
 	k6Version string,
-	mods []Module,
-	out io.Writer,
+	exts []Module,
+	binary io.Writer,
 ) error {
-	b.logFlags = log.Flags()
-	b.logOutput = log.Writer()
-	b.logWriter = logrus.StandardLogger().WriterLevel(logrus.DebugLevel)
-	b.stderr = os.Stderr
-
-	log.SetOutput(b.logWriter)
-	log.SetFlags(0)
-
-	if null, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0); err == nil {
-		os.Stderr = null
+	workDir, err := os.MkdirTemp(os.TempDir(), defaultWorkDir)
+	if err != nil {
+		return fmt.Errorf("creating working directory: %w", err)
 	}
 
-	defer b.close()
+	defer func() {
+		if b.SkipCleanup {
+			b.log.Infof("Skipping cleanup; leaving folder intact: %s", workDir)
+			return
+		}
+		b.log.Infof("Cleaning up work directory: %s", workDir)
+		_ = os.RemoveAll(workDir)
+	}()
 
-	logrus.Debug("Building new k6 binary (native)")
+	// prepare the build environment
+	b.log.Info("Building new k6 binary (native)")
 
-	xk6Builder := new(xk6.Builder)
+	k6Path := filepath.Join(workDir, "k6")
 
-	xk6Builder.Cgo = false
-	xk6Builder.OS = platform.OS
-	xk6Builder.Arch = platform.Arch
-	xk6Builder.K6Version = k6Version
-
-	for _, m := range mods {
-		xk6Builder.Extensions = append(xk6Builder.Extensions,
-			xk6.Dependency{
-				PackagePath: m.PackagePath,
-				Version:     m.Version,
-			},
-		)
+	goOut := io.Discard
+	goErr := io.Discard
+	if b.Verbose {
+		goOut = b.Stdout
+		goErr = b.Stderr
 	}
-
-	tmp, err := os.CreateTemp("", "k6")
+	buildEnv, err := newGoEnv(
+		workDir,
+		b.GoOpts,
+		platform,
+		goOut,
+		goErr,
+	)
 	if err != nil {
 		return err
 	}
 
-	if err = tmp.Close(); err != nil {
-		return err
-	}
-
-	if err = xk6Builder.Build(ctx, tmp.Name()); err != nil {
-		return err
-	}
-
-	tmp, err = os.Open(tmp.Name())
+	b.log.Info("Initializing Go module")
+	err = buildEnv.modInit(ctx)
 	if err != nil {
 		return err
 	}
 
-	_, err = io.Copy(out, tmp)
+	b.log.Info("Creating k6 main")
+	err = b.createMain(ctx, workDir)
+	if err != nil {
+		return err
+	}
 
-	tmp.Close()           //nolint:errcheck,gosec
-	os.Remove(tmp.Name()) //nolint:errcheck,gosec
+	err = buildEnv.addMod(ctx, defaultK6ModulePath, k6Version)
+	if err != nil {
+		return err
+	}
 
-	return err
+	b.log.Info("importing extensions")
+	for _, m := range exts {
+		err = b.createModuleImport(ctx, workDir, m)
+		if err != nil {
+			return err
+		}
+
+		err = buildEnv.addMod(ctx, m.PackagePath, m.Version)
+		if err != nil {
+			return err
+		}
+	}
+
+	b.log.Info("Building k6")
+	err = buildEnv.compile(ctx, k6Path)
+	if err != nil {
+		return err
+	}
+
+	b.log.Info("Build complete")
+	k6File, err := os.Open(k6Path) //nolint:gosec
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(binary, k6File)
+	if err != nil {
+		return fmt.Errorf("copying binary %w", err)
+	}
+
+	return nil
 }
 
-func (b *nativeBuilder) close() {
-	_ = b.logWriter.Close()
+func (b *nativeBuilder) createMain(_ context.Context, path string) error {
+	// write the main module file
+	mainPath := filepath.Join(path, "main.go")
+	mainContent := fmt.Sprintf(mainModuleTemplate, defaultK6ModulePath)
+	err := os.WriteFile(mainPath, []byte(mainContent), 0o600)
+	if err != nil {
+		return fmt.Errorf("writing main file %w", err)
+	}
 
-	log.SetFlags(b.logFlags)
-	log.SetOutput(b.logOutput)
-
-	os.Stderr = b.stderr
+	return nil
 }
 
-func goVersion() (string, bool) {
-	cmd, err := exec.LookPath("go")
+func (b *nativeBuilder) createModuleImport(_ context.Context, path string, mod Module) error {
+	modImportFile := filepath.Join(path, strings.ReplaceAll(mod.PackagePath, "/", "_")+".go")
+	modImportContent := fmt.Sprintf(modImportTemplate, mod.PackagePath)
+	err := os.WriteFile(modImportFile, []byte(modImportContent), 0o600)
 	if err != nil {
-		return "", false
+		return fmt.Errorf("writing mod file %w", err)
 	}
 
-	out, err := exec.Command(cmd, "version").Output() //nolint:gosec
-	if err != nil {
-		return "", false
-	}
-
-	pre := []byte("go")
-
-	fields := bytes.SplitN(out, []byte{' '}, 4)
-	if len(fields) < 4 || !bytes.Equal(fields[0], pre) || !bytes.HasPrefix(fields[2], pre) {
-		return "", false
-	}
-
-	ver := string(bytes.TrimPrefix(fields[2], pre))
-
-	return ver, true
-}
-
-func hasGit() bool {
-	cmd, err := exec.LookPath("git")
-	if err != nil {
-		return false
-	}
-
-	_, err = exec.Command(cmd, "version").Output() //nolint:gosec
-
-	return err == nil
+	return nil
 }

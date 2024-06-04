@@ -18,6 +18,7 @@ k6build build -k v0.50.0 -d github.com/mostafa/xk6-kafka@v0.17.0
 // New creates new cobra command for build command.
 func New() *cobra.Command {
 	var (
+		opts         k6build.NativeBuilderOpts
 		deps         []string
 		k6Version    string
 		platformFlag string
@@ -49,7 +50,11 @@ func New() *cobra.Command {
 				mods = append(mods, mod)
 			}
 
-			b, err := k6build.NewDefaultBuilder(ctx)
+			// set builder's output
+			opts.Stdout = os.Stdout //nolint:forbidigo
+			opts.Stderr = os.Stderr //nolint:forbidigo
+
+			b, err := k6build.NewNativeBuilder(ctx, opts)
 			if err != nil {
 				return err
 			}
@@ -79,5 +84,8 @@ func New() *cobra.Command {
 	cmd.Flags().StringVarP(&k6Version, "k6-version", "k", "latest", "k6 version")
 	cmd.Flags().StringVarP(&platformFlag, "platform", "p", "", "target platform in the format os/arch")
 	cmd.Flags().StringVarP(&outPath, "output", "o", "k6", "path to output file")
+	cmd.Flags().BoolVar(&opts.CopyEnv, "copy-env", false, "copy current environment")
+	cmd.Flags().StringVar(&opts.LogLevel, "log-level", "error", "log level")
+	cmd.Flags().BoolVar(&opts.Verbose, "verbose", false, "verbose build output")
 	return cmd
 }
