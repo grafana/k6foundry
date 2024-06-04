@@ -1,3 +1,3 @@
 build/
-k6
+./k6
 .vscode
