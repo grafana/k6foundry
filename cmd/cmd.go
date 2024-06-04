@@ -1,4 +1,5 @@
-package main
+// Package cmd contains build cobra command factory function.
+package cmd
 
 import (
 	"errors"
@@ -14,7 +15,8 @@ const example = `
 k6build build -k v0.50.0 -d github.com/mostafa/xk6-kafka@v0.17.0
 `
 
-func newBuildCmd() *cobra.Command {
+// New creates new cobra command for build command.
+func New() *cobra.Command {
 	var (
 		deps         []string
 		k6Version    string
