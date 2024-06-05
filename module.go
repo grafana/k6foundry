@@ -21,10 +21,10 @@ var (
 
 // Module reference a go module and its version
 type Module struct {
-	// The name (import path) of the Go package. If at a version > 1,
+	// The name (import path) of the go module. If at a version > 1,
 	// it should contain semantic import version (i.e. "/v2").
 	// Used with `go get`.
-	PackagePath string
+	Path string
 
 	// The version of the Go module, as used with `go get`.
 	Version string
@@ -63,18 +63,18 @@ func ParseModule(mod string) (Module, error) {
 	}
 
 	return Module{
-		PackagePath: path,
-		Version:     version,
+		Path:    path,
+		Version: version,
 	}, nil
 }
 
 // VersionedPath returns a module path with the major component of version added,
 // if it is a valid semantic version and is > 1
 // Examples:
-// - PackagePath="foo" and Version="v1.0.0" returns "foo"
-// - PackagePath="foo" and Version="v2.0.0" returns "foo/v2"
-// - PackagePath="foo/v2" and vVersion="v3.0.0" returns an error
-// - PackagePath="foo" and Version="latest" returns "foo"
+// - Path="foo" and Version="v1.0.0" returns "foo"
+// - Path="foo" and Version="v2.0.0" returns "foo/v2"
+// - Path="foo/v2" and vVersion="v3.0.0" returns an error
+// - Path="foo" and Version="latest" returns "foo"
 func versionedPath(path string, version string) (string, error) {
 	// if not is a semantic version return (could have been a commit SHA or 'latest')
 	if !semver.IsValid(version) {
@@ -86,7 +86,7 @@ func versionedPath(path string, version string) (string, error) {
 	if moduleVersionRegexp.MatchString(path) {
 		modPathVer := filepath.Base(path)
 		if modPathVer != major {
-			return "", fmt.Errorf("invalid version for versioned package %q: %q", path, version)
+			return "", fmt.Errorf("invalid version for versioned path %q: %q", path, version)
 		}
 		return path, nil
 	}

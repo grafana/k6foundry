@@ -148,7 +148,7 @@ func (b *nativeBuilder) Build(
 			return err
 		}
 
-		err = buildEnv.addMod(ctx, m.PackagePath, m.Version)
+		err = buildEnv.addMod(ctx, m.Path, m.Version)
 		if err != nil {
 			return err
 		}
@@ -187,8 +187,8 @@ func (b *nativeBuilder) createMain(_ context.Context, path string) error {
 }
 
 func (b *nativeBuilder) createModuleImport(_ context.Context, path string, mod Module) error {
-	modImportFile := filepath.Join(path, strings.ReplaceAll(mod.PackagePath, "/", "_")+".go")
-	modImportContent := fmt.Sprintf(modImportTemplate, mod.PackagePath)
+	modImportFile := filepath.Join(path, strings.ReplaceAll(mod.Path, "/", "_")+".go")
+	modImportContent := fmt.Sprintf(modImportTemplate, mod.Path)
 	err := os.WriteFile(modImportFile, []byte(modImportContent), 0o600)
 	if err != nil {
 		return fmt.Errorf("writing mod file %w", err)
