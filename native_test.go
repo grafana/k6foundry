@@ -198,12 +198,28 @@ func TestBuild(t *testing.T) {
 			expectError: ErrResolvingDependency,
 		},
 		{
-			title:     "compile k6 v0.1.0 with k6extV2 (v0.2.0)",
+			title:     "compile k6 v0.2.0 with k6extV2 (v0.2.0)",
 			k6Version: "v0.2.0",
 			mods: []Module{
 				{Path: "go.k6.io/k6ext/v2", Version: "v2.0.0"},
 			},
 			expectError: nil,
+		},
+		{
+			title:     "compile k6 v0.2.0 replace k6extV2 with local module",
+			k6Version: "v0.2.0",
+			mods: []Module{
+				{Path: "go.k6.io/k6ext", ReplacePath: "./test/mods/k6ext"},
+			},
+			expectError: nil,
+		},
+		{
+			title:     "compile k6 v0.2.0 replace k6extV2 with missing local module",
+			k6Version: "v0.2.0",
+			mods: []Module{
+				{Path: "go.k6.io/k6ext", ReplacePath: "./test/mods/mising/k6ext"},
+			},
+			expectError: ErrResolvingDependency,
 		},
 	}
 

@@ -9,56 +9,101 @@ func TestParseModule(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		title         string
-		module        string
-		expectError   error
-		expectPath    string
-		expectVersion string
+		title       string
+		dependency  string
+		expectError error
+		expect      Module
 	}{
 		{
-			title:         "path with canonical version",
-			module:        "github.com/path/module@v0.1.0",
-			expectPath:    "github.com/path/module",
-			expectVersion: "v0.1.0",
+			title:      "path with canonical version",
+			dependency: "github.com/path/module@v0.1.0",
+			expect: Module{
+				Path:    "github.com/path/module",
+				Version: "v0.1.0",
+			},
 		},
 		{
-			title:         "path with incomplete version",
-			module:        "github.com/path/module@v0.1",
-			expectPath:    "github.com/path/module",
-			expectVersion: "v0.1.0",
+			title:      "path with incomplete version",
+			dependency: "github.com/path/module@v0.1",
+			expect: Module{
+				Path:    "github.com/path/module",
+				Version: "v0.1.0",
+			},
 		},
 		{
-			title:         "path without version",
-			module:        "github.com/path/module",
-			expectPath:    "github.com/path/module",
-			expectVersion: "latest",
+			title:      "path without version",
+			dependency: "github.com/path/module",
+			expect: Module{
+				Path:    "github.com/path/module",
+				Version: "latest",
+			},
 		},
 		{
-			title:         "path with latest version",
-			module:        "github.com/path/module@latest",
-			expectPath:    "github.com/path/module",
-			expectVersion: "latest",
+			title:      "path with latest version",
+			dependency: "github.com/path/module@latest",
+			expect: Module{
+				Path:    "github.com/path/module",
+				Version: "latest",
+			},
 		},
 		{
 			title:       "path with invalid version",
-			module:      "github.com/path/module@1",
-			expectError: ErrInvalidSemanticVersion,
+			dependency:  "github.com/path/module@1",
+			expectError: ErrInvalidDependencyFormat,
 		},
 		{
 			title:       "path with invalid incomplete version",
-			module:      "github.com/path/module@v",
-			expectError: ErrInvalidSemanticVersion,
+			dependency:  "github.com/path/module@v",
+			expectError: ErrInvalidDependencyFormat,
 		},
 		{
 			title:       "invalid path",
-			module:      "github.com/@v1",
-			expectError: ErrInvalidPath,
+			dependency:  "github.com/@v1",
+			expectError: ErrInvalidDependencyFormat,
 		},
 		{
 			// this is considered valid according to go's module rules
-			title:       "path with only domain",
-			module:      "github.com@v1",
-			expectError: nil,
+			title:      "path with only domain",
+			dependency: "github.com@v1",
+			expect: Module{
+				Path:    "github.com",
+				Version: "v1.0.0",
+			},
+		},
+		{
+			title:      "versioned replace",
+			dependency: "github.com/path/module=github.com/another/module@v0.1.0",
+			expect: Module{
+				Path:           "github.com/path/module",
+				Version:        "latest",
+				ReplacePath:    "github.com/another/module",
+				ReplaceVersion: "v0.1.0",
+			},
+		},
+		{
+			title:      "unversioned replace",
+			dependency: "github.com/path/module=github.com/another/module",
+			expect: Module{
+				Path:           "github.com/path/module",
+				Version:        "latest",
+				ReplacePath:    "github.com/another/module",
+				ReplaceVersion: "",
+			},
+		},
+		{
+			title:      "relative replace",
+			dependency: "github.com/path/module=./another/module",
+			expect: Module{
+				Path:           "github.com/path/module",
+				Version:        "latest",
+				ReplacePath:    "./another/module",
+				ReplaceVersion: "",
+			},
+		},
+		{
+			title:       "versioned relative replace",
+			dependency:  "github.com/path/module=./another/module@v0.1.0",
+			expectError: ErrInvalidDependencyFormat,
 		},
 	}
 
@@ -67,9 +112,13 @@ func TestParseModule(t *testing.T) {
 		t.Run(tc.title, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := ParseModule(tc.module)
+			module, err := ParseModule(tc.dependency)
 			if !errors.Is(err, tc.expectError) {
 				t.Fatalf("expected %v got %v", tc.expectError, err)
+			}
+
+			if tc.expectError == nil && tc.expect != module {
+				t.Fatalf("expected %v got %v", tc.expect, module)
 			}
 		})
 	}

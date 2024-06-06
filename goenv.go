@@ -107,14 +107,6 @@ func newGoEnv(
 	}, nil
 }
 
-// TODO: use golang.org/x/mod/modfile package to manipulate the gomod programmatically
-func (e *goEnv) addMod(ctx context.Context, path string, version string) error {
-	if err := e.modRequire(ctx, path, version); err != nil {
-		return err
-	}
-	return e.modTidy(ctx)
-}
-
 func (e goEnv) runGo(ctx context.Context, timeout time.Duration, args ...string) error {
 	cmd := exec.Command("go", args...)
 
@@ -194,13 +186,28 @@ func (e goEnv) modTidy(ctx context.Context) error {
 }
 
 func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string) error {
-	mod := modulePath
 	if moduleVersion != "" {
-		mod += "@" + moduleVersion
-	} else {
-		mod += "@latest"
+		modulePath += "@" + moduleVersion
 	}
-	err := e.runGo(ctx, e.opts.GoGetTimeout, "mod", "edit", "-require", mod)
+
+	err := e.runGo(ctx, e.opts.GoGetTimeout, "mod", "edit", "-require", modulePath)
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrResolvingDependency, err.Error())
+	}
+
+	return nil
+}
+
+func (e goEnv) modReplace(ctx context.Context, modulePath, moduleVersion, replacePath, replaceVersion string) error {
+	if moduleVersion != "" {
+		modulePath += "@" + moduleVersion
+	}
+
+	if replaceVersion != "" {
+		replacePath += "@" + replaceVersion
+	}
+
+	err := e.runGo(ctx, e.opts.GoGetTimeout, "mod", "edit", "-replace", fmt.Sprintf("%s=%s", modulePath, replacePath))
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrResolvingDependency, err.Error())
 	}

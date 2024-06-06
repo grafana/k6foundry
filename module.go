@@ -14,9 +14,7 @@ import (
 var (
 	moduleVersionRegexp = regexp.MustCompile(`.+/v(\d+)$`)
 
-	ErrInvalidDependencyFormat = errors.New("invalid dependency format")  //nolint:revive
-	ErrInvalidSemanticVersion  = errors.New("invalid dependency version") //nolint:revive
-	ErrInvalidPath             = errors.New("invalid dependency path")    //nolint:revive
+	ErrInvalidDependencyFormat = errors.New("invalid dependency format") //nolint:revive
 )
 
 // Module reference a go module and its version
@@ -28,44 +26,103 @@ type Module struct {
 
 	// The version of the Go module, as used with `go get`.
 	Version string
+
+	// Module replacement
+	ReplacePath string
+
+	//  Module replace version
+	ReplaceVersion string
 }
 
-// ParseModule parses a module from a string of the form path[@version]
-func ParseModule(mod string) (Module, error) {
-	path, version, found := strings.Cut(mod, "@")
-
-	// TODO: add regexp for checking path@version
-	if found && (path == "" || version == "") {
-		return Module{}, fmt.Errorf("%w: %q", ErrInvalidDependencyFormat, mod)
-	}
-
-	switch version {
-	case "":
-		version = "latest"
-	case "latest":
-		break
-	default:
-		if !semver.IsValid(version) {
-			return Module{}, fmt.Errorf("%w: %q", ErrInvalidSemanticVersion, mod)
+func (m Module) String() string {
+	replace := ""
+	if m.ReplacePath != "" {
+		replaceVer := ""
+		if m.ReplaceVersion != "" {
+			replaceVer = "@" + m.ReplaceVersion
 		}
-		version = semver.Canonical(version)
+		replace = fmt.Sprintf(" => %s%s", m.ReplacePath, replaceVer)
+	}
+	return fmt.Sprintf("%s@%s%s", m.Path, m.Version, replace)
+}
+
+// ParseModule parses a module from a string of the form path[@version][=replace[@version]]
+func ParseModule(modString string) (Module, error) {
+	mod, replaceMod, _ := strings.Cut(modString, "=")
+
+	path, version, err := splitPathVersion(mod)
+	if err != nil {
+		return Module{}, fmt.Errorf("%w: %q", err, mod)
 	}
 
-	err := module.CheckPath(path)
-	if err != nil {
-		return Module{}, fmt.Errorf("%w: %q", ErrInvalidPath, mod)
+	if err = module.CheckPath(path); err != nil {
+		return Module{}, fmt.Errorf("%w: %w", ErrInvalidDependencyFormat, err)
+	}
+
+	if version == "" {
+		version = "latest"
 	}
 
 	// TODO: should we enforce the versioned path or reject if it not conformant?
 	path, err = versionedPath(path, version)
 	if err != nil {
-		return Module{}, fmt.Errorf("%w: %q", ErrInvalidPath, mod)
+		return Module{}, fmt.Errorf("%w: %q", err, mod)
+	}
+
+	replacePath, replaceVersion, err := replace(replaceMod)
+	if err != nil {
+		return Module{}, err
 	}
 
 	return Module{
-		Path:    path,
-		Version: version,
+		Path:           path,
+		Version:        version,
+		ReplacePath:    replacePath,
+		ReplaceVersion: replaceVersion,
 	}, nil
+}
+
+func replace(replaceMod string) (string, string, error) {
+	if replaceMod == "" {
+		return "", "", nil
+	}
+
+	replacePath, replaceVersion, err := splitPathVersion(replaceMod)
+	if err != nil {
+		return "", "", err
+	}
+
+	// is a relative path
+	if strings.HasPrefix(replacePath, ".") {
+		if replaceVersion != "" {
+			return "", "", fmt.Errorf("%w: relative replace path can't specify version", ErrInvalidDependencyFormat)
+		}
+		return replacePath, replaceVersion, nil
+	}
+
+	return replacePath, replaceVersion, nil
+}
+
+// splits a path[@version] string into its components
+func splitPathVersion(mod string) (string, string, error) {
+	path, version, found := strings.Cut(mod, "@")
+
+	// TODO: add regexp for checking path@version
+	if path == "" || (found && version == "") {
+		return "", "", fmt.Errorf("%w: %q", ErrInvalidDependencyFormat, mod)
+	}
+
+	switch version {
+	case "", "latest":
+		break
+	default:
+		if !semver.IsValid(version) {
+			return "", "", fmt.Errorf("%w: invalid semantic version %q", ErrInvalidDependencyFormat, mod)
+		}
+		version = semver.Canonical(version)
+	}
+
+	return path, version, nil
 }
 
 // VersionedPath returns a module path with the major component of version added,
