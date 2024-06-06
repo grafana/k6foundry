@@ -84,7 +84,7 @@ func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error
 func (b *nativeBuilder) Build(
 	ctx context.Context,
 	platform Platform,
-	k6Version string,
+	k6Verion string,
 	exts []Module,
 	binary io.Writer,
 ) error {
@@ -136,7 +136,12 @@ func (b *nativeBuilder) Build(
 		return err
 	}
 
-	err = buildEnv.addMod(ctx, defaultK6ModulePath, k6Version)
+	k6Mod := Module{
+		Path:    defaultK6ModulePath,
+		Version: k6Verion,
+	}
+
+	err = b.addMod(ctx, buildEnv, k6Mod)
 	if err != nil {
 		return err
 	}
@@ -148,7 +153,7 @@ func (b *nativeBuilder) Build(
 			return err
 		}
 
-		err = buildEnv.addMod(ctx, m.Path, m.Version)
+		err = b.addMod(ctx, buildEnv, m)
 		if err != nil {
 			return err
 		}
@@ -184,6 +189,44 @@ func (b *nativeBuilder) createMain(_ context.Context, path string) error {
 	}
 
 	return nil
+}
+
+func (b *nativeBuilder) addMod(ctx context.Context, e *goEnv, mod Module) (err error) {
+	defer func() {
+		if err == nil {
+			err = e.modTidy(ctx)
+		}
+	}()
+
+	b.log.Infof("adding dependency %s", mod.String())
+
+	if mod.ReplacePath == "" {
+		return e.modRequire(ctx, mod.Path, mod.Version)
+	}
+
+	// resolve path to and absolute path because the mod replace will occuer in the work directory
+	replacePath, err := resolvePath(mod.ReplacePath)
+	if err != nil {
+		return fmt.Errorf("resolving replace path: %w", err)
+	}
+	return e.modReplace(ctx, mod.Path, mod.Version, replacePath, mod.ReplaceVersion)
+}
+
+func resolvePath(path string) (string, error) {
+	var err error
+	// expand environment variables
+	if strings.Contains(path, "$") {
+		path = os.ExpandEnv(path)
+	}
+
+	if strings.HasPrefix(path, ".") {
+		path, err = filepath.Abs(path)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return path, nil
 }
 
 func (b *nativeBuilder) createModuleImport(_ context.Context, path string, mod Module) error {
