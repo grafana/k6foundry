@@ -86,6 +86,7 @@ func (b *nativeBuilder) Build(
 	platform Platform,
 	k6Verion string,
 	exts []Module,
+	buildOpts []string,
 	binary io.Writer,
 ) error {
 	workDir, err := os.MkdirTemp(os.TempDir(), defaultWorkDir)
@@ -160,7 +161,7 @@ func (b *nativeBuilder) Build(
 	}
 
 	b.log.Info("Building k6")
-	err = buildEnv.compile(ctx, k6Path)
+	err = buildEnv.compile(ctx, k6Path, buildOpts...)
 	if err != nil {
 		return err
 	}

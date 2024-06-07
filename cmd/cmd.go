@@ -45,6 +45,7 @@ func New() *cobra.Command {
 		k6Version    string
 		platformFlag string
 		outPath      string
+		buildOpts    []string
 	)
 
 	cmd := &cobra.Command{
@@ -89,8 +90,7 @@ func New() *cobra.Command {
 			}
 
 			defer outFile.Close() //nolint:errcheck
-
-			err = b.Build(ctx, platform, k6Version, mods, outFile)
+			err = b.Build(ctx, platform, k6Version, mods, buildOpts, outFile)
 
 			return err
 		},
@@ -109,5 +109,6 @@ func New() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.CopyEnv, "copy-env", false, "copy current environment variables")
 	cmd.Flags().StringVar(&opts.LogLevel, "log-level", "error", "log level")
 	cmd.Flags().BoolVar(&opts.Verbose, "verbose", false, "verbose build output")
+	cmd.Flags().StringArrayVarP(&buildOpts, "build-opts", "b", []string{}, "go build opts. e.g. -ldflags='-w -s'")
 	return cmd
 }

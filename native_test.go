@@ -251,6 +251,7 @@ func TestBuild(t *testing.T) {
 				platform,
 				tc.k6Version,
 				tc.mods,
+				[]string{},
 				outFile,
 			)
 
