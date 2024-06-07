@@ -217,6 +217,7 @@ func (e goEnv) modReplace(ctx context.Context, modulePath, moduleVersion, replac
 
 func (e goEnv) compile(ctx context.Context, outPath string, buildFlags ...string) error {
 	args := append([]string{"build", "-o", outPath}, buildFlags...)
+
 	err := e.runGo(ctx, e.opts.GOBuildTimeout, args...)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrCompiling, err.Error())
