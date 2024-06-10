@@ -24,10 +24,10 @@ If a relative replacement path is specified, the replacement version cannot be s
 
 const example = `
 # build k6 v0.50.0 with latest version of xk6-kubernetes
-k6build build -k v0.50.0 -d github.com/grafana/xk6-kubernetes
+k6build build -v v0.50.0 -d github.com/grafana/xk6-kubernetes
 
 # build k6 v0.49.0 with xk6-kubernetes v0.9.0 and k6-output-kafka v0.7.0
-k6build build -k v0.49.0 -d github.com/grafana/xk6-kubernetes \
+k6build build -v v0.49.0 -d github.com/grafana/xk6-kubernetes \
     -d github.com/grafana/xk6-output-kafka@v0.7.0
 
 # build latest version of k6 with latest version of xk6-kubernetes v0.8.0
@@ -35,6 +35,9 @@ k6build build -d github.com/grafana/xk6-kubernetes@v0.8.0
 
 # build latest version of k6 and replace xk6-kubernetes with a local module
 k6build build -d github.com/grafana/xk6-kubernetes=../xk6-kubernetes
+
+# build k6 from a local repository
+k6build build -r ../k6
 `
 
 // New creates new cobra command for build command.
@@ -43,6 +46,7 @@ func New() *cobra.Command {
 		opts         k6build.NativeBuilderOpts
 		deps         []string
 		k6Version    string
+		k6Repo       string
 		platformFlag string
 		outPath      string
 		buildOpts    []string
@@ -78,6 +82,8 @@ func New() *cobra.Command {
 			opts.Stdout = os.Stdout //nolint:forbidigo
 			opts.Stderr = os.Stderr //nolint:forbidigo
 
+			opts.K6Repo = k6Repo
+
 			b, err := k6build.NewNativeBuilder(ctx, opts)
 			if err != nil {
 				return err
@@ -103,7 +109,8 @@ func New() *cobra.Command {
 		[]string{},
 		"list of dependencies using go mod format: path[@version][replace@version]",
 	)
-	cmd.Flags().StringVarP(&k6Version, "k6-version", "k", "latest", "k6 version")
+	cmd.Flags().StringVarP(&k6Version, "k6-version", "v", "latest", "k6 version")
+	cmd.Flags().StringVarP(&k6Repo, "k6-repostitory", "r", "", "k6 repository")
 	cmd.Flags().StringVarP(&platformFlag, "platform", "p", "", "target platform in the format os/arch")
 	cmd.Flags().StringVarP(&outPath, "output", "o", "k6", "path to output file")
 	cmd.Flags().BoolVar(&opts.CopyEnv, "copy-env", false, "copy current environment variables")

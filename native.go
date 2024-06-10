@@ -106,7 +106,7 @@ func (b *nativeBuilder) Build(
 	// prepare the build environment
 	b.log.Info("Building new k6 binary (native)")
 
-	k6Path := filepath.Join(workDir, "k6")
+	k6Binary := filepath.Join(workDir, "k6")
 
 	goOut := io.Discard
 	goErr := io.Discard
@@ -138,8 +138,9 @@ func (b *nativeBuilder) Build(
 	}
 
 	k6Mod := Module{
-		Path:    defaultK6ModulePath,
-		Version: k6Verion,
+		Path:        defaultK6ModulePath,
+		Version:     k6Verion,
+		ReplacePath: b.K6Repo,
 	}
 
 	err = b.addMod(ctx, buildEnv, k6Mod)
@@ -161,13 +162,13 @@ func (b *nativeBuilder) Build(
 	}
 
 	b.log.Info("Building k6")
-	err = buildEnv.compile(ctx, k6Path, buildOpts...)
+	err = buildEnv.compile(ctx, k6Binary, buildOpts...)
 	if err != nil {
 		return err
 	}
 
 	b.log.Info("Build complete")
-	k6File, err := os.Open(k6Path) //nolint:gosec
+	k6File, err := os.Open(k6Binary) //nolint:gosec
 	if err != nil {
 		return err
 	}
