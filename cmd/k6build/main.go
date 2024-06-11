@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/grafana/k6build/cmd"
+	"github.com/grafana/k6build"
 )
 
 //nolint:all
 func main() {
-	root := newRootCmd()
-	root.AddCommand(newVersionCmd())
-	root.AddCommand(cmd.New())
+	root := k6build.NewCmd()
 
 	err := root.Execute()
 	if err != nil {
