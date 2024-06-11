@@ -1,8 +1,11 @@
-package k6build
+// Package cmd implements the build command
+package cmd
 
 import (
 	"errors"
 	"os"
+
+	"github.com/grafana/k6build"
 
 	"github.com/spf13/cobra"
 )
@@ -38,10 +41,10 @@ k6build -d github.com/grafana/xk6-kubernetes=../xk6-kubernetes
 k6build -r ../k6
 `
 
-// NewCmd creates new cobra command for build command.
-func NewCmd() *cobra.Command {
+// New creates new cobra command for build command.
+func New() *cobra.Command {
 	var (
-		opts         NativeBuilderOpts
+		opts         k6build.NativeBuilderOpts
 		deps         []string
 		k6Version    string
 		k6Repo       string
@@ -63,17 +66,17 @@ func NewCmd() *cobra.Command {
 			ctx := cmd.Context()
 
 			var err error
-			platform := RuntimePlatform()
+			platform := k6build.RuntimePlatform()
 			if platformFlag != "" {
-				platform, err = ParsePlatform(platformFlag)
+				platform, err = k6build.ParsePlatform(platformFlag)
 				if err != nil {
 					return err
 				}
 			}
 
-			mods := []Module{}
+			mods := []k6build.Module{}
 			for _, d := range deps {
-				mod, err2 := ParseModule(d)
+				mod, err2 := k6build.ParseModule(d)
 				if err2 != nil {
 					return err2
 				}
@@ -86,7 +89,7 @@ func NewCmd() *cobra.Command {
 
 			opts.K6Repo = k6Repo
 
-			b, err := NewNativeBuilder(ctx, opts)
+			b, err := k6build.NewNativeBuilder(ctx, opts)
 			if err != nil {
 				return err
 			}
