@@ -1,8 +1,5 @@
 work_dir = $(shell pwd)
 golangci_version = $(shell head -n 1 .golangci.yml | tr -d '\# ')
-arch = $(shell go env GOARCH)
-image ?= ghcr.io/grafana/xk6-disruptor:latest
-agent_image ?= ghcr.io/grafana/xk6-disruptor-agent:latest
 
 all: build
 
