@@ -50,6 +50,11 @@ type NativeBuilderOpts struct {
 	Verbose     bool
 }
 
+// NewDefaultNativeBuilder creates a new native build environment with default options
+func NewDefaultNativeBuilder() (Builder, error) {
+	return NewNativeBuilder(context.TODO(), NativeBuilderOpts{})
+}
+
 // NewNativeBuilder creates a new native build environment with the given options
 func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error) {
 	if opts.Stderr == nil {
