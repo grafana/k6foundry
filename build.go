@@ -1,5 +1,5 @@
-// Package k6build contains k6 build logic.
-package k6build
+// Package k6foundry contains logic for building k6 binary
+package k6foundry
 
 import (
 	"context"

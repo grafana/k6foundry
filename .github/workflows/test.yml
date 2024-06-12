@@ -39,7 +39,7 @@ jobs:
         uses: codecov/codecov-action@v4.0.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          slug: grafana/k6build
+          slug: grafana/k6foundry
 
       - name: Generate Go Report Card
         if: ${{ matrix.platform == 'ubuntu-latest' && github.ref_name == 'main' }}

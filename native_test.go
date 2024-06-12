@@ -1,5 +1,5 @@
 //nolint:forbidigo,gosec
-package k6build
+package k6foundry
 
 import (
 	"bytes"

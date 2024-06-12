@@ -1,4 +1,4 @@
-project_name: k6build
+project_name: k6foundry
 before:
   hooks:
     - go mod tidy
@@ -10,7 +10,7 @@ builds:
     goarch: ["amd64", "arm64"]
     ldflags:
       - '-s -w -X main.version={{.Version}}'
-    dir: cmd/k6build
+    dir: cmd/k6foundry
 source:
   enabled: true
   name_template: "{{ .ProjectName }}_{{ .Version }}_source"

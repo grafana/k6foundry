@@ -1,4 +1,4 @@
-module github.com/grafana/k6build
+module github.com/grafana/k6foundry
 
 go 1.22.2
 

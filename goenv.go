@@ -1,5 +1,5 @@
 //nolint:revive
-package k6build
+package k6foundry
 
 import (
 	"bytes"

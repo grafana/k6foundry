@@ -1,4 +1,4 @@
-package k6build
+package k6foundry
 
 import (
 	"errors"

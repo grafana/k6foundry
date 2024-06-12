@@ -1,11 +1,11 @@
-// Package cmd implements the build command
+// Package cmd implements the k6foundry command
 package cmd
 
 import (
 	"errors"
 	"os"
 
-	"github.com/grafana/k6build"
+	"github.com/grafana/k6foundry"
 
 	"github.com/spf13/cobra"
 )
@@ -25,26 +25,26 @@ If a relative replacement path is specified, the replacement version cannot be s
 
 const example = `
 # build k6 v0.50.0 with latest version of xk6-kubernetes
-k6build -v v0.50.0 -d github.com/grafana/xk6-kubernetes
+k6foundry build -v v0.50.0 -d github.com/grafana/xk6-kubernetes
 
 # build k6 v0.49.0 with xk6-kubernetes v0.9.0 and k6-output-kafka v0.7.0
-k6build -v v0.49.0 -d github.com/grafana/xk6-kubernetes \
+k6foundry build -v v0.49.0 -d github.com/grafana/xk6-kubernetes \
     -d github.com/grafana/xk6-output-kafka@v0.7.0
 
 # build latest version of k6 with latest version of xk6-kubernetes v0.8.0
-k6build -d github.com/grafana/xk6-kubernetes@v0.8.0
+k6foundry build -d github.com/grafana/xk6-kubernetes@v0.8.0
 
 # build latest version of k6 and replace xk6-kubernetes with a local module
-k6build -d github.com/grafana/xk6-kubernetes=../xk6-kubernetes
+k6foundry build -d github.com/grafana/xk6-kubernetes=../xk6-kubernetes
 
 # build k6 from a local repository
-k6build -r ../k6
+k6foundry build -r ../k6
 `
 
 // New creates new cobra command for build command.
 func New() *cobra.Command {
 	var (
-		opts         k6build.NativeBuilderOpts
+		opts         k6foundry.NativeBuilderOpts
 		deps         []string
 		k6Version    string
 		k6Repo       string
@@ -54,29 +54,25 @@ func New() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:     "k6build",
+		Use:     "build",
 		Short:   "build a custom k6 binary with extensions",
 		Long:    long,
 		Example: example,
-		// prevent the usage help to printed to stderr when an error is reported by a subcommand
-		SilenceUsage: true,
-		// this is needed to prevent cobra to print errors reported by subcommands in the stderr
-		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
 			var err error
-			platform := k6build.RuntimePlatform()
+			platform := k6foundry.RuntimePlatform()
 			if platformFlag != "" {
-				platform, err = k6build.ParsePlatform(platformFlag)
+				platform, err = k6foundry.ParsePlatform(platformFlag)
 				if err != nil {
 					return err
 				}
 			}
 
-			mods := []k6build.Module{}
+			mods := []k6foundry.Module{}
 			for _, d := range deps {
-				mod, err2 := k6build.ParseModule(d)
+				mod, err2 := k6foundry.ParseModule(d)
 				if err2 != nil {
 					return err2
 				}
@@ -89,7 +85,7 @@ func New() *cobra.Command {
 
 			opts.K6Repo = k6Repo
 
-			b, err := k6build.NewNativeBuilder(ctx, opts)
+			b, err := k6foundry.NewNativeBuilder(ctx, opts)
 			if err != nil {
 				return err
 			}

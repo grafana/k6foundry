@@ -1,5 +1,5 @@
 //nolint:forbidigo,revive,funlen
-package k6build
+package k6foundry
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 const (
 	defaultK6ModulePath = "go.k6.io/k6"
 
-	defaultWorkDir = "k6build*"
+	defaultWorkDir = "k6foundry*"
 
 	mainModuleTemplate = `package main
 
