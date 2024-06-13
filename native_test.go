@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -54,18 +53,6 @@ func TestBuild(t *testing.T) {
 	}
 
 	goproxySrv := httptest.NewServer(proxy)
-
-	// create mod cache
-	modcache := filepath.Join(t.TempDir(), "modcache")
-	_ = os.Mkdir(modcache, 0o777)
-
-	// deleting the modcache dir would fail because files are write protected, so we must
-	// use go clean command
-	t.Cleanup(func() {
-		c := exec.Command("go", "clean", "-modcache")
-		c.Env = []string{"GOMODCACHE=" + modcache}
-		_ = c.Run()
-	})
 
 	testCases := []struct {
 		title       string
@@ -140,12 +127,20 @@ func TestBuild(t *testing.T) {
 
 			platform, _ := ParsePlatform("linux/amd64")
 
+			modcache := filepath.Join(t.TempDir(), "modcache")
+			_ = os.Mkdir(modcache, 0o777)
+
+			gocache := filepath.Join(t.TempDir(), "gocache")
+			_ = os.Mkdir(gocache, 0o777)
+
 			opts := NativeBuilderOpts{
+				CleanGoCache: true,
 				GoOpts: GoOpts{
 					CopyEnv:    true,
 					GoProxy:    goproxySrv.URL,
 					GoNoProxy:  "none",
 					GoPrivate:  "go.k6.io",
+					GoCache:    gocache,
 					GoModCache: modcache,
 				},
 			}

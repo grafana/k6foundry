@@ -226,6 +226,15 @@ func (e goEnv) compile(ctx context.Context, outPath string, buildFlags ...string
 	return err
 }
 
+func (e goEnv) clean(ctx context.Context) error {
+	err := e.runGo(ctx, e.opts.GOBuildTimeout, "clean", "-cache", "-modcache")
+	if err != nil {
+		return fmt.Errorf("cleaning: %s", err.Error())
+	}
+
+	return err
+}
+
 func mapToSlice(m map[string]string) []string {
 	s := []string{}
 	for k, v := range m {

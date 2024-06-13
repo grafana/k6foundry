@@ -41,13 +41,22 @@ type nativeBuilder struct {
 
 // NativeBuilderOpts defines the options for the Native build environment
 type NativeBuilderOpts struct {
+	// options used for running go
 	GoOpts
-	K6Repo      string
+	// use alternative k6 repository
+	K6Repo string
+	// don't cleanup work environment (useful for debugging)
 	SkipCleanup bool
-	Stdout      io.Writer
-	Stderr      io.Writer
-	LogLevel    string
-	Verbose     bool
+	// clean go cache after build (useful for testing)
+	CleanGoCache bool
+	// redirect stdout
+	Stdout io.Writer
+	// redirect stderr
+	Stderr io.Writer
+	// set log level (INFO, WARN, ERROR)
+	LogLevel string
+	// redirect output of go commands to Stdout/Stderr
+	Verbose bool
 }
 
 // NewDefaultNativeBuilder creates a new native build environment with default options
@@ -104,6 +113,7 @@ func (b *nativeBuilder) Build(
 			b.log.Infof("Skipping cleanup; leaving folder intact: %s", workDir)
 			return
 		}
+
 		b.log.Infof("Cleaning up work directory: %s", workDir)
 		_ = os.RemoveAll(workDir)
 	}()
@@ -128,6 +138,12 @@ func (b *nativeBuilder) Build(
 	)
 	if err != nil {
 		return err
+	}
+
+	if b.CleanGoCache {
+		defer func() {
+			_ = buildEnv.clean(ctx)
+		}()
 	}
 
 	b.log.Info("Initializing Go module")
