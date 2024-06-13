@@ -65,12 +65,18 @@ func (p *GoProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (p *GoProxy) AddModVersion(
 	path string,
 	version string,
-	src map[string][]byte,
+	sourcePath string,
 ) error {
+	// create modules for tests
+	sourceFiles, err := ReadDir(sourcePath)
+	if err != nil {
+		return fmt.Errorf("reading module source: %w", err)
+	}
+
 	modPath := filepath.Join("/", path, "@v")
 
 	// create gomod
-	gomod, found := src["go.mod"]
+	gomod, found := sourceFiles["go.mod"]
 	if !found {
 		return fmt.Errorf("go.mod is required")
 	}
@@ -78,9 +84,9 @@ func (p *GoProxy) AddModVersion(
 	// create zip file
 	zipRoot := fmt.Sprintf("%s@%s", path, version)
 	zipBuffer := &bytes.Buffer{}
-	zipWritter := zip.NewWriter(zipBuffer)
-	for name, content := range src {
-		w, err2 := zipWritter.Create(filepath.Join(zipRoot, name))
+	zipWriter := zip.NewWriter(zipBuffer)
+	for name, content := range sourceFiles {
+		w, err2 := zipWriter.Create(filepath.Join(zipRoot, name))
 		if err2 != nil {
 			return fmt.Errorf("creating zip file: %w", err2)
 		}
@@ -89,7 +95,7 @@ func (p *GoProxy) AddModVersion(
 			return fmt.Errorf("creating zip file: %w", err2)
 		}
 	}
-	err := zipWritter.Close()
+	err = zipWriter.Close()
 	if err != nil {
 		return fmt.Errorf("creating zip file: %w", err)
 	}

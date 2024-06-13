@@ -11,53 +11,36 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/grafana/k6foundry/pkg/testutils"
 	"github.com/grafana/k6foundry/pkg/testutils/goproxy"
 )
 
 func TestBuild(t *testing.T) {
 	t.Parallel()
 
-	// create modules for tests
-	k6Src, err := testutils.ReadDir("test/mods/k6")
-	if err != nil {
-		t.Fatalf("test setup %v", err)
-	}
-
-	extSrc, err := testutils.ReadDir("test/mods/k6ext")
-	if err != nil {
-		t.Fatalf("test setup %v", err)
-	}
-
-	extV2Src, err := testutils.ReadDir("test/mods/k6extV2")
-	if err != nil {
-		t.Fatalf("test setup %v", err)
-	}
-
 	modules := []struct {
 		path    string
 		version string
-		source  map[string][]byte
+		source  string
 	}{
 		{
 			path:    "go.k6.io/k6",
 			version: "v0.1.0",
-			source:  k6Src,
+			source:  "testdata/mods/k6",
 		},
 		{
 			path:    "go.k6.io/k6",
 			version: "v0.2.0",
-			source:  k6Src,
+			source:  "testdata/mods/k6",
 		},
 		{
 			path:    "go.k6.io/k6ext",
 			version: "v0.1.0",
-			source:  extSrc,
+			source:  "testdata/mods/k6ext",
 		},
 		{
 			path:    "go.k6.io/k6ext/v2",
 			version: "v2.0.0",
-			source:  extV2Src,
+			source:  "testdata/mods/k6extV2",
 		},
 	}
 
@@ -136,7 +119,7 @@ func TestBuild(t *testing.T) {
 			title:     "compile k6 v0.2.0 replace k6ext with local module",
 			k6Version: "v0.2.0",
 			mods: []Module{
-				{Path: "go.k6.io/k6ext", ReplacePath: "./test/mods/k6ext"},
+				{Path: "go.k6.io/k6ext", ReplacePath: "./testdata/mods/k6ext"},
 			},
 			expectError: nil,
 		},
@@ -144,7 +127,7 @@ func TestBuild(t *testing.T) {
 			title:     "compile k6 v0.2.0 replace k6ext with missing local module",
 			k6Version: "v0.2.0",
 			mods: []Module{
-				{Path: "go.k6.io/k6ext", ReplacePath: "./test/mods/missing/k6ext"},
+				{Path: "go.k6.io/k6ext", ReplacePath: "./testdata/mods/missing/k6ext"},
 			},
 			expectError: ErrResolvingDependency,
 		},

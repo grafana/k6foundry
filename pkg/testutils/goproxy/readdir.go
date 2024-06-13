@@ -1,5 +1,4 @@
-// Package testutils contains utility functions for testing
-package testutils
+package goproxy
 
 import (
 	"io/fs"
