@@ -1,4 +1,3 @@
-//nolint:forbidigo,gosec
 package k6foundry
 
 import (
@@ -6,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/grafana/k6foundry/pkg/testutils/goproxy"
@@ -126,22 +123,13 @@ func TestBuild(t *testing.T) {
 			t.Parallel()
 
 			platform, _ := ParsePlatform("linux/amd64")
-
-			modcache := filepath.Join(t.TempDir(), "modcache")
-			_ = os.Mkdir(modcache, 0o777)
-
-			gocache := filepath.Join(t.TempDir(), "gocache")
-			_ = os.Mkdir(gocache, 0o777)
-
 			opts := NativeBuilderOpts{
-				CleanGoCache: true,
 				GoOpts: GoOpts{
-					CopyEnv:    true,
-					GoProxy:    goproxySrv.URL,
-					GoNoProxy:  "none",
-					GoPrivate:  "go.k6.io",
-					GoCache:    gocache,
-					GoModCache: modcache,
+					CopyEnv:        true,
+					GoProxy:        goproxySrv.URL,
+					GoNoProxy:      "none",
+					GoPrivate:      "go.k6.io",
+					EphemeralCache: true,
 				},
 			}
 

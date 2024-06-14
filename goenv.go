@@ -1,4 +1,4 @@
-//nolint:revive
+//nolint:revive,forbidigo
 package k6foundry
 
 import (
@@ -47,6 +47,8 @@ type GoOpts struct {
 	GoGetTimeout time.Duration
 	// Timeout for building binary
 	GOBuildTimeout time.Duration
+	// Use an ephemeral cache. Ignores GoModCache and GoCache
+	EphemeralCache bool
 }
 
 type goEnv struct {
@@ -71,6 +73,22 @@ func newGoEnv(
 
 	if !hasGit() {
 		return nil, ErrNoGit
+	}
+
+	if opts.EphemeralCache {
+		// override caches with temporary files
+		modCache, err := os.MkdirTemp(os.TempDir(), "modcache*")
+		if err != nil {
+			return nil, fmt.Errorf("creating mod cache %w", err)
+		}
+
+		goCache, err := os.MkdirTemp(os.TempDir(), "cache*")
+		if err != nil {
+			return nil, fmt.Errorf("creating go cache %w", err)
+		}
+
+		opts.GoCache = goCache
+		opts.GoModCache = modCache
 	}
 
 	env := map[string]string{}
@@ -105,6 +123,20 @@ func newGoEnv(
 		stdout:   stdout,
 		stderr:   stderr,
 	}, nil
+}
+
+func (e goEnv) close(ctx context.Context) error {
+	if e.opts.EphemeralCache {
+		return errors.Join(
+			// clean caches otherwise can't delete the directories
+			// because cached files are readonly
+			e.clean(ctx),
+			os.RemoveAll(e.opts.GoCache),
+			os.RemoveAll(e.opts.GoModCache),
+		)
+	}
+
+	return nil
 }
 
 func (e goEnv) runGo(ctx context.Context, timeout time.Duration, args ...string) error {

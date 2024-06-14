@@ -47,8 +47,6 @@ type NativeBuilderOpts struct {
 	K6Repo string
 	// don't cleanup work environment (useful for debugging)
 	SkipCleanup bool
-	// clean go cache after build (useful for testing)
-	CleanGoCache bool
 	// redirect stdout
 	Stdout io.Writer
 	// redirect stderr
@@ -140,11 +138,13 @@ func (b *nativeBuilder) Build(
 		return err
 	}
 
-	if b.CleanGoCache {
-		defer func() {
-			_ = buildEnv.clean(ctx)
-		}()
-	}
+	defer func() {
+		if b.SkipCleanup {
+			b.log.Infof("Skipping go cleanup")
+			return
+		}
+		_ = buildEnv.close(ctx)
+	}()
 
 	b.log.Info("Initializing Go module")
 	err = buildEnv.modInit(ctx)
