@@ -115,7 +115,7 @@ func New() *cobra.Command {
 	cmd.Flags().StringVarP(&platformFlag, "platform", "p", "", "target platform in the format os/arch")
 	cmd.Flags().StringVarP(&outPath, "output", "o", "k6", "path to output file")
 	cmd.Flags().BoolVar(&opts.CopyGoEnv, "copy-go-env", true, "copy current go environment")
-	cmd.Flags().StringVar(&opts.LogLevel, "log-level", "error", "log level")
+	cmd.Flags().StringVar(&opts.LogLevel, "log-level", "", "log level")
 	cmd.Flags().BoolVar(&opts.Verbose, "verbose", false, "verbose build output")
 	cmd.Flags().StringArrayVarP(&buildOpts, "build-opts", "b", []string{}, "go build opts. e.g. -ldflags='-w -s'")
 	return cmd

@@ -71,12 +71,18 @@ func NewDefaultNativeBuilder() (Builder, error) {
 
 // NewNativeBuilder creates a new native build environment with the given options
 func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error) {
-	if opts.Verbose && opts.Stdout == nil {
-		opts.Stdout = os.Stdout
-	}
+	logLevel := logrus.ErrorLevel
 
-	if opts.Verbose && opts.Stderr == nil {
-		opts.Stderr = os.Stderr
+	if opts.Verbose {
+		logLevel = logrus.InfoLevel
+
+		if opts.Stdout == nil {
+			opts.Stdout = os.Stdout
+		}
+
+		if opts.Stderr == nil {
+			opts.Stderr = os.Stderr
+		}
 	}
 
 	if opts.Stderr == nil {
@@ -88,7 +94,6 @@ func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error
 	}
 
 	var err error
-	logLevel := logrus.ErrorLevel
 	if opts.LogLevel != "" {
 		logLevel, err = logrus.ParseLevel(opts.LogLevel)
 		if err != nil {
