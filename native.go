@@ -59,7 +59,14 @@ type NativeBuilderOpts struct {
 
 // NewDefaultNativeBuilder creates a new native build environment with default options
 func NewDefaultNativeBuilder() (Builder, error) {
-	return NewNativeBuilder(context.TODO(), NativeBuilderOpts{})
+	return NewNativeBuilder(
+		context.TODO(),
+		NativeBuilderOpts{
+			GoOpts: GoOpts{
+				CopyGoEnv: true,
+			},
+		},
+	)
 }
 
 // NewNativeBuilder creates a new native build environment with the given options
