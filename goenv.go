@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"time"
@@ -30,37 +31,29 @@ var (
 
 // GoOpts defines the options for the go build environment
 type GoOpts struct {
+	// Environment variables passed to the build service
+	// Can override variables copied from the current go environment
+	Env map[string]string
 	// Copy Environment variables to go build environment
 	CopyGoEnv bool
-	// Enable Cgo. Overrides values in environment if CopyEnv is true
-	Cgo bool
-	// Sets GONOSUMDB environment variables. Overrides values in environment if CopyEnv is true
-	GoNoSumDB string
-	// Sets GOCACHE. Overrides values in environment if CopyEnv is true
-	GoCache string
-	// sets GOMODCACHE
-	GoModCache string
-	// Sets GOPROXY. Overrides values in environment if CopyEnv is true
-	GoProxy string
-	// Sets GONOPROXY. Overrides values in environment if CopyEnv is true
-	GoNoProxy string
-	// Sets GOPRIVATE. Overrides values in environment if CopyEnv is true
-	GoPrivate string
 	// Timeout for getting modules
 	GoGetTimeout time.Duration
 	// Timeout for building binary
 	GOBuildTimeout time.Duration
 	// Use an ephemeral cache. Ignores GoModCache and GoCache
-	EphemeralCache bool
+	TmpCache bool
 }
 
 type goEnv struct {
-	env      []string
-	workDir  string
-	opts     GoOpts
-	platform Platform
-	stdout   io.Writer
-	stderr   io.Writer
+	env          []string
+	workDir      string
+	platform     Platform
+	stdout       io.Writer
+	stderr       io.Writer
+	tmpDirs      []string
+	tmpCache     bool
+	buildTimeout time.Duration
+	getTimeout   time.Duration
 }
 
 func newGoEnv(
@@ -70,7 +63,10 @@ func newGoEnv(
 	stdout io.Writer,
 	stderr io.Writer,
 ) (*goEnv, error) {
-	var err error
+	var (
+		err     error
+		tmpDirs []string
+	)
 
 	if _, hasGo := goVersion(); !hasGo {
 		return nil, ErrNoGoToolchain
@@ -80,9 +76,22 @@ func newGoEnv(
 		return nil, ErrNoGit
 	}
 
-	if opts.EphemeralCache {
-		var modCache, goCache string
+	env := map[string]string{}
+
+	// copy current go environment
+	if opts.CopyGoEnv {
+		env, err = getGoEnv()
+		if err != nil {
+			return nil, fmt.Errorf("copying go environment %w", err)
+		}
+	}
+
+	// set/override environment variables
+	maps.Copy(env, opts.Env)
+
+	if opts.TmpCache {
 		// override caches with temporary files
+		var modCache, goCache string
 		modCache, err = os.MkdirTemp(os.TempDir(), "modcache*")
 		if err != nil {
 			return nil, fmt.Errorf("creating mod cache %w", err)
@@ -93,64 +102,50 @@ func newGoEnv(
 			return nil, fmt.Errorf("creating go cache %w", err)
 		}
 
-		opts.GoCache = goCache
-		opts.GoModCache = modCache
+		env["GOCACHE"] = goCache
+		env["GOMODCACHE"] = modCache
+
+		// add to the list of directories for cleanup
+		tmpDirs = append(tmpDirs, goCache, modCache)
 	}
 
-	env := map[string]string{}
-	if opts.CopyGoEnv {
-		env, err = getGoEnv()
-		if err != nil {
-			return nil, fmt.Errorf("copying go environment %w", err)
-		}
-	}
-
+	// ensure path is set
 	env["PATH"] = os.Getenv("PATH")
 
+	// override platform
 	env["GOOS"] = platform.OS
 	env["GOARCH"] = platform.Arch
-	env["CGO_ENABLED"] = fmt.Sprintf("%t", opts.Cgo)
-	if opts.GoCache != "" {
-		env["GOCACHE"] = opts.GoCache
-	}
-	if opts.GoModCache != "" {
-		env["GOMODCACHE"] = opts.GoModCache
-	}
-	if opts.GoProxy != "" {
-		env["GOPROXY"] = opts.GoProxy
-	}
-	if opts.GoNoProxy != "" {
-		env["GONOPROXY"] = opts.GoNoProxy
-	}
-	if opts.GoPrivate != "" {
-		env["GOPRIVATE"] = opts.GoPrivate
-	}
-	if opts.GoNoSumDB != "" {
-		env["GONOSUMDB"] = opts.GoNoSumDB
-	}
 
 	return &goEnv{
-		env:      mapToSlice(env),
-		platform: platform,
-		opts:     opts,
-		workDir:  workDir,
-		stdout:   stdout,
-		stderr:   stderr,
+		env:          mapToSlice(env),
+		platform:     platform,
+		workDir:      workDir,
+		stdout:       stdout,
+		stderr:       stderr,
+		buildTimeout: opts.GOBuildTimeout,
+		getTimeout:   opts.GoGetTimeout,
+		tmpDirs:      tmpDirs,
+		tmpCache:     opts.TmpCache,
 	}, nil
 }
 
 func (e goEnv) close(ctx context.Context) error {
-	if e.opts.EphemeralCache {
-		return errors.Join(
-			// clean caches otherwise can't delete the directories
-			// because cached files are readonly
-			e.clean(ctx),
-			os.RemoveAll(e.opts.GoCache),
-			os.RemoveAll(e.opts.GoModCache),
+	var err error
+
+	if e.tmpCache {
+		// clean caches, otherwirse directories can't be deleted
+		err = e.clean(ctx)
+	}
+
+	// creal all temporary dirs
+	for _, dir := range e.tmpDirs {
+		err = errors.Join(
+			err,
+			os.RemoveAll(dir),
 		)
 	}
 
-	return nil
+	return err
 }
 
 func (e goEnv) runGo(ctx context.Context, timeout time.Duration, args ...string) error {
@@ -223,7 +218,7 @@ func (e goEnv) modInit(ctx context.Context) error {
 
 // tidy the module to ensure go.mod will not have versions such as `latest`
 func (e goEnv) modTidy(ctx context.Context) error {
-	err := e.runGo(ctx, e.opts.GoGetTimeout, "mod", "tidy", "-compat=1.17")
+	err := e.runGo(ctx, e.getTimeout, "mod", "tidy", "-compat=1.17")
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrResolvingDependency, err.Error())
 	}
@@ -236,7 +231,7 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 		modulePath += "@" + moduleVersion
 	}
 
-	err := e.runGo(ctx, e.opts.GoGetTimeout, "mod", "edit", "-require", modulePath)
+	err := e.runGo(ctx, e.getTimeout, "mod", "edit", "-require", modulePath)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrResolvingDependency, err.Error())
 	}
@@ -253,7 +248,7 @@ func (e goEnv) modReplace(ctx context.Context, modulePath, moduleVersion, replac
 		replacePath += "@" + replaceVersion
 	}
 
-	err := e.runGo(ctx, e.opts.GoGetTimeout, "mod", "edit", "-replace", fmt.Sprintf("%s=%s", modulePath, replacePath))
+	err := e.runGo(ctx, e.getTimeout, "mod", "edit", "-replace", fmt.Sprintf("%s=%s", modulePath, replacePath))
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrResolvingDependency, err.Error())
 	}
@@ -264,7 +259,7 @@ func (e goEnv) modReplace(ctx context.Context, modulePath, moduleVersion, replac
 func (e goEnv) compile(ctx context.Context, outPath string, buildFlags ...string) error {
 	args := append([]string{"build", "-o", outPath}, buildFlags...)
 
-	err := e.runGo(ctx, e.opts.GOBuildTimeout, args...)
+	err := e.runGo(ctx, e.buildTimeout, args...)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrCompiling, err.Error())
 	}
@@ -273,7 +268,7 @@ func (e goEnv) compile(ctx context.Context, outPath string, buildFlags ...string
 }
 
 func (e goEnv) clean(ctx context.Context) error {
-	err := e.runGo(ctx, e.opts.GOBuildTimeout, "clean", "-cache", "-modcache")
+	err := e.runGo(ctx, e.buildTimeout, "clean", "-cache", "-modcache")
 	if err != nil {
 		return fmt.Errorf("cleaning: %s", err.Error())
 	}

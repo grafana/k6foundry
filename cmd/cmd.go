@@ -25,10 +25,10 @@ If a relative replacement path is specified, the replacement version cannot be s
 
 const example = `
 # build k6 v0.50.0 with latest version of xk6-kubernetes
-k6foundry build -v v0.50.0 -d github.com/grafana/xk6-kubernetes
+k6foundry build -k v0.50.0 -d github.com/grafana/xk6-kubernetes
 
 # build k6 v0.49.0 with xk6-kubernetes v0.9.0 and k6-output-kafka v0.7.0
-k6foundry build -v v0.49.0 -d github.com/grafana/xk6-kubernetes \
+k6foundry build -k v0.49.0 -d github.com/grafana/xk6-kubernetes \
     -d github.com/grafana/xk6-output-kafka@v0.7.0
 
 # build latest version of k6 with latest version of xk6-kubernetes v0.8.0
@@ -39,6 +39,9 @@ k6foundry build -d github.com/grafana/xk6-kubernetes=../xk6-kubernetes
 
 # build k6 from a local repository
 k6foundry build -r ../k6
+
+# build k6 using a custom GOPROXY and force all modules from the proxy
+k6foundry build -e GOPROXY=http://localhost:8000 -e GONOPROXY=none
 `
 
 // New creates new cobra command for build command.
@@ -111,12 +114,13 @@ func New() *cobra.Command {
 		"list of dependencies using go mod format: path[@version][replace@version]",
 	)
 	cmd.Flags().StringVarP(&k6Version, "k6-version", "v", "latest", "k6 version")
-	cmd.Flags().StringVarP(&k6Repo, "k6-repostitory", "r", "", "k6 repository")
+	cmd.Flags().StringVarP(&k6Repo, "k6-repository", "r", "", "k6 repository")
 	cmd.Flags().StringVarP(&platformFlag, "platform", "p", "", "target platform in the format os/arch")
 	cmd.Flags().StringVarP(&outPath, "output", "o", "k6", "path to output file")
 	cmd.Flags().BoolVar(&opts.CopyGoEnv, "copy-go-env", true, "copy current go environment")
 	cmd.Flags().StringVar(&opts.LogLevel, "log-level", "", "log level")
 	cmd.Flags().BoolVar(&opts.Verbose, "verbose", false, "verbose build output")
 	cmd.Flags().StringArrayVarP(&buildOpts, "build-opts", "b", []string{}, "go build opts. e.g. -ldflags='-w -s'")
+	cmd.Flags().StringToStringVarP(&opts.Env, "env", "e", nil, "build environment variables")
 	return cmd
 }
