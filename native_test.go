@@ -124,11 +124,13 @@ func TestBuild(t *testing.T) {
 
 			platform, _ := ParsePlatform("linux/amd64")
 			opts := NativeBuilderOpts{
+				Verbose: true,
 				GoOpts: GoOpts{
-					CopyEnv:        true,
+					CopyGoEnv:      true,
 					GoProxy:        goproxySrv.URL,
 					GoNoProxy:      "none",
 					GoPrivate:      "go.k6.io",
+					GoNoSumDB:      "go.k6.io",
 					EphemeralCache: true,
 				},
 			}
