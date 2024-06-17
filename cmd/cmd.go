@@ -42,6 +42,9 @@ k6foundry build -r ../k6
 
 # build k6 using a custom GOPROXY and force all modules from the proxy
 k6foundry build -e GOPROXY=http://localhost:8000 -e GONOPROXY=none
+
+# build k6 using a temporary go cache ignoring go mod cache and go cache
+k6foundry build --tmp-cache=true
 `
 
 // New creates new cobra command for build command.
@@ -122,5 +125,8 @@ func New() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.Verbose, "verbose", false, "verbose build output")
 	cmd.Flags().StringArrayVarP(&buildOpts, "build-opts", "b", []string{}, "go build opts. e.g. -ldflags='-w -s'")
 	cmd.Flags().StringToStringVarP(&opts.Env, "env", "e", nil, "build environment variables")
+	cmd.Flags().BoolVarP(&opts.TmpCache, "tmp-cache", "t", false, "use a temporary go cache."+
+		"Forces downloading all dependencies.")
+
 	return cmd
 }
