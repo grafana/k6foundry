@@ -4,6 +4,7 @@ package k6foundry
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -30,9 +31,11 @@ var (
 // GoOpts defines the options for the go build environment
 type GoOpts struct {
 	// Copy Environment variables to go build environment
-	CopyEnv bool
+	CopyGoEnv bool
 	// Enable Cgo. Overrides values in environment if CopyEnv is true
 	Cgo bool
+	// Sets GONOSUMDB environment variables. Overrides values in environment if CopyEnv is true
+	GoNoSumDB string
 	// Sets GOCACHE. Overrides values in environment if CopyEnv is true
 	GoCache string
 	// sets GOMODCACHE
@@ -67,6 +70,8 @@ func newGoEnv(
 	stdout io.Writer,
 	stderr io.Writer,
 ) (*goEnv, error) {
+	var err error
+
 	if _, hasGo := goVersion(); !hasGo {
 		return nil, ErrNoGoToolchain
 	}
@@ -76,13 +81,14 @@ func newGoEnv(
 	}
 
 	if opts.EphemeralCache {
+		var modCache, goCache string
 		// override caches with temporary files
-		modCache, err := os.MkdirTemp(os.TempDir(), "modcache*")
+		modCache, err = os.MkdirTemp(os.TempDir(), "modcache*")
 		if err != nil {
 			return nil, fmt.Errorf("creating mod cache %w", err)
 		}
 
-		goCache, err := os.MkdirTemp(os.TempDir(), "cache*")
+		goCache, err = os.MkdirTemp(os.TempDir(), "cache*")
 		if err != nil {
 			return nil, fmt.Errorf("creating go cache %w", err)
 		}
@@ -92,6 +98,15 @@ func newGoEnv(
 	}
 
 	env := map[string]string{}
+	if opts.CopyGoEnv {
+		env, err = getGoEnv()
+		if err != nil {
+			return nil, fmt.Errorf("copying go environment %w", err)
+		}
+	}
+
+	env["PATH"] = os.Getenv("PATH")
+
 	env["GOOS"] = platform.OS
 	env["GOARCH"] = platform.Arch
 	env["CGO_ENABLED"] = fmt.Sprintf("%t", opts.Cgo)
@@ -110,13 +125,12 @@ func newGoEnv(
 	if opts.GoPrivate != "" {
 		env["GOPRIVATE"] = opts.GoPrivate
 	}
-
-	cmdEnv := []string{}
-	if opts.CopyEnv {
-		cmdEnv = os.Environ() //nolint:forbidigo
+	if opts.GoNoSumDB != "" {
+		env["GONOSUMDB"] = opts.GoNoSumDB
 	}
+
 	return &goEnv{
-		env:      append(cmdEnv, mapToSlice(env)...),
+		env:      mapToSlice(env),
 		platform: platform,
 		opts:     opts,
 		workDir:  workDir,
@@ -297,6 +311,27 @@ func goVersion() (string, bool) {
 	ver := string(bytes.TrimPrefix(fields[2], pre))
 
 	return ver, true
+}
+
+func getGoEnv() (map[string]string, error) {
+	cmd, err := exec.LookPath("go")
+	if err != nil {
+		return nil, fmt.Errorf("getting go binary %w", err)
+	}
+
+	out, err := exec.Command(cmd, "env", "-json").Output() //nolint:gosec
+	if err != nil {
+		return nil, fmt.Errorf("getting go env %w", err)
+	}
+
+	envMap := map[string]string{}
+
+	err = json.Unmarshal(out, &envMap)
+	if err != nil {
+		return nil, fmt.Errorf("getting go env %w", err)
+	}
+
+	return envMap, err
 }
 
 func hasGit() bool {
