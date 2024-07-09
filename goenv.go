@@ -21,8 +21,6 @@ var (
 	ErrExecutingGoCommand = errors.New("executing go command")
 	// Go toolchacin is not installed
 	ErrNoGoToolchain = errors.New("go toolchain notfound")
-	// Git is not installed
-	ErrNoGit = errors.New("git notfound")
 	// Error resolving dependency
 	ErrResolvingDependency = errors.New("resolving dependency")
 	// Error initiailizing go build environment
@@ -70,10 +68,6 @@ func newGoEnv(
 
 	if _, hasGo := goVersion(); !hasGo {
 		return nil, ErrNoGoToolchain
-	}
-
-	if !hasGit() {
-		return nil, ErrNoGit
 	}
 
 	env := map[string]string{}
@@ -327,15 +321,4 @@ func getGoEnv() (map[string]string, error) {
 	}
 
 	return envMap, err
-}
-
-func hasGit() bool {
-	cmd, err := exec.LookPath("git")
-	if err != nil {
-		return false
-	}
-
-	_, err = exec.Command(cmd, "version").Output() //nolint:gosec
-
-	return err == nil
 }

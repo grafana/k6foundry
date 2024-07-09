@@ -116,7 +116,7 @@ func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error
 func (b *nativeBuilder) Build(
 	ctx context.Context,
 	platform Platform,
-	k6Verion string,
+	k6Version string,
 	exts []Module,
 	buildOpts []string,
 	binary io.Writer,
@@ -180,7 +180,7 @@ func (b *nativeBuilder) Build(
 
 	k6Mod := Module{
 		Path:        defaultK6ModulePath,
-		Version:     k6Verion,
+		Version:     k6Version,
 		ReplacePath: b.K6Repo,
 	}
 
