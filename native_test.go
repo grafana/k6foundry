@@ -124,7 +124,6 @@ func TestBuild(t *testing.T) {
 
 			platform, _ := ParsePlatform("linux/amd64")
 			opts := NativeBuilderOpts{
-				Verbose: false,
 				GoOpts: GoOpts{
 					CopyGoEnv: true,
 					Env: map[string]string{

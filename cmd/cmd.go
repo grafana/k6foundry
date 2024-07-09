@@ -1,4 +1,5 @@
 // Package cmd implements the k6foundry command
+// nolint:forbidigo,funlen,nolintlint
 package cmd
 
 import (
@@ -57,6 +58,7 @@ func New() *cobra.Command {
 		platformFlag string
 		outPath      string
 		buildOpts    []string
+		verbose      bool
 	)
 
 	cmd := &cobra.Command{
@@ -86,8 +88,11 @@ func New() *cobra.Command {
 			}
 
 			// set builder's output
-			opts.Stdout = os.Stdout //nolint:forbidigo
-			opts.Stderr = os.Stderr //nolint:forbidigo
+
+			if verbose {
+				opts.Stdout = os.Stdout
+				opts.Stderr = os.Stderr
+			}
 
 			opts.K6Repo = k6Repo
 
@@ -97,7 +102,7 @@ func New() *cobra.Command {
 			}
 
 			// TODO: check file permissions
-			outFile, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE, 0o777) //nolint:forbidigo,gosec
+			outFile, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE, 0o777) //nolint:gosec
 			if err != nil {
 				return err
 			}
@@ -122,7 +127,7 @@ func New() *cobra.Command {
 	cmd.Flags().StringVarP(&outPath, "output", "o", "k6", "path to output file")
 	cmd.Flags().BoolVar(&opts.CopyGoEnv, "copy-go-env", true, "copy current go environment")
 	cmd.Flags().StringVar(&opts.LogLevel, "log-level", "", "log level")
-	cmd.Flags().BoolVar(&opts.Verbose, "verbose", false, "verbose build output")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "verbose build output")
 	cmd.Flags().StringArrayVarP(&buildOpts, "build-opts", "b", []string{}, "go build opts. e.g. -ldflags='-w -s'")
 	cmd.Flags().StringToStringVarP(&opts.Env, "env", "e", nil, "build environment variables")
 	cmd.Flags().BoolVarP(&opts.TmpCache, "tmp-cache", "t", false, "use a temporary go cache."+
