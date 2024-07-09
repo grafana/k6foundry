@@ -27,5 +27,11 @@ The custom binary can target an specific platform, specified as a `os/arch` pair
 The following example shows the options for building a custom k6 `v.0.50.0` binary with the latest version of the kubernetes extension and kafka output extension `v0.7.0`.
 
 ```
-k6foundry build -k v0.50.0 -d github.com/grafana/xk6-kubernetes -d github.com/grafana/xk6-output-kafka@v0.7.0
+k6foundry build -v v0.50.0 -d github.com/grafana/xk6-kubernetes -d github.com/grafana/xk6-output-kafka@v0.7.0
+```
+
+For more examples run
+
+```
+k6foundry build --help
 ```

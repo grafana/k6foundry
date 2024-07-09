@@ -25,10 +25,10 @@ If a relative replacement path is specified, the replacement version cannot be s
 
 const example = `
 # build k6 v0.50.0 with latest version of xk6-kubernetes
-k6foundry build -k v0.50.0 -d github.com/grafana/xk6-kubernetes
+k6foundry build -v v0.50.0 -d github.com/grafana/xk6-kubernetes
 
 # build k6 v0.49.0 with xk6-kubernetes v0.9.0 and k6-output-kafka v0.7.0
-k6foundry build -k v0.49.0 -d github.com/grafana/xk6-kubernetes \
+k6foundry build -v v0.49.0 -d github.com/grafana/xk6-kubernetes \
     -d github.com/grafana/xk6-output-kafka@v0.7.0
 
 # build latest version of k6 with latest version of xk6-kubernetes v0.8.0
