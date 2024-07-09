@@ -110,6 +110,11 @@ func newGoEnv(
 	env["GOOS"] = platform.OS
 	env["GOARCH"] = platform.Arch
 
+	// disable CGO if target platform is different from host platform
+	if env["GOHOSTARCH"] != platform.Arch || env["GOHOSTOS"] != platform.OS {
+		env["CGO_ENABLED"] = "0"
+	}
+
 	return &goEnv{
 		env:          mapToSlice(env),
 		platform:     platform,
