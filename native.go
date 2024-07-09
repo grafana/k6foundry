@@ -53,8 +53,6 @@ type NativeBuilderOpts struct {
 	Stderr io.Writer
 	// set log level (INFO, WARN, ERROR)
 	LogLevel string
-	// redirect output of go commands to Stdout/Stderr
-	Verbose bool
 }
 
 // NewDefaultNativeBuilder creates a new native build environment with default options
@@ -73,18 +71,6 @@ func NewDefaultNativeBuilder() (Builder, error) {
 func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error) {
 	logLevel := logrus.ErrorLevel
 
-	if opts.Verbose {
-		logLevel = logrus.InfoLevel
-
-		if opts.Stdout == nil {
-			opts.Stdout = os.Stdout
-		}
-
-		if opts.Stderr == nil {
-			opts.Stderr = os.Stderr
-		}
-	}
-
 	if opts.Stderr == nil {
 		opts.Stderr = io.Discard
 	}
@@ -101,7 +87,7 @@ func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error
 		}
 	}
 	log := &logrus.Logger{
-		Out:       opts.Stderr,
+		Out:       os.Stderr, //nolint:forbidigo
 		Formatter: new(logrus.TextFormatter),
 		Level:     logLevel,
 	}
@@ -141,18 +127,12 @@ func (b *nativeBuilder) Build(
 
 	k6Binary := filepath.Join(workDir, "k6")
 
-	goOut := io.Discard
-	goErr := io.Discard
-	if b.Verbose {
-		goOut = b.Stdout
-		goErr = b.Stderr
-	}
 	buildEnv, err := newGoEnv(
 		workDir,
 		b.GoOpts,
 		platform,
-		goOut,
-		goErr,
+		b.Stdout,
+		b.Stderr,
 	)
 	if err != nil {
 		return err
