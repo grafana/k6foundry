@@ -37,7 +37,7 @@ func NewGoProxy() *GoProxy {
 
 // ServeHTTP handles GOPROXY requests
 func (p *GoProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	file := r.URL.Path
+	file := filepath.FromSlash(r.URL.Path)
 	content, found := p.files[file]
 
 	if !found {
