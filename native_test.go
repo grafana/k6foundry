@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/grafana/k6foundry/pkg/testutils/goproxy"
@@ -124,6 +125,8 @@ func TestBuild(t *testing.T) {
 
 			platform, _ := ParsePlatform("linux/amd64")
 			opts := NativeBuilderOpts{
+				Stdout: os.Stdout,
+				Stderr: os.Stderr,
 				GoOpts: GoOpts{
 					CopyGoEnv: true,
 					Env: map[string]string{
