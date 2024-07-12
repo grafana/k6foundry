@@ -1,13 +1,16 @@
 name: lint
 
 on:
-  pull_request:
-  workflow_dispatch:
   push:
+    branches:
+      - main
     paths-ignore:
       - "docs/**"
       - README.md
       - "releases/**"
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
