@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/grafana/k6foundry/pkg/testutils/goproxy"
@@ -21,22 +23,22 @@ func TestBuild(t *testing.T) {
 		{
 			path:    "go.k6.io/k6",
 			version: "v0.1.0",
-			source:  "testdata/mods/k6",
+			source:  filepath.Join("testdata", "mods", "k6"),
 		},
 		{
 			path:    "go.k6.io/k6",
 			version: "v0.2.0",
-			source:  "testdata/mods/k6",
+			source:  filepath.Join("testdata", "mods", "k6"),
 		},
 		{
 			path:    "go.k6.io/k6ext",
 			version: "v0.1.0",
-			source:  "testdata/mods/k6ext",
+			source:  filepath.Join("testdata", "mods", "k6ext"),
 		},
 		{
 			path:    "go.k6.io/k6ext/v2",
 			version: "v2.0.0",
-			source:  "testdata/mods/k6extV2",
+			source:  filepath.Join("testdata", "mods", "k6extV2"),
 		},
 	}
 
@@ -103,7 +105,8 @@ func TestBuild(t *testing.T) {
 			title:     "compile k6 v0.2.0 replace k6ext with local module",
 			k6Version: "v0.2.0",
 			mods: []Module{
-				{Path: "go.k6.io/k6ext", ReplacePath: "./testdata/mods/k6ext"},
+				// use FromSlash because Join removes the leading "."
+				{Path: "go.k6.io/k6ext", ReplacePath: filepath.FromSlash("./testdata/mods/k6ext")},
 			},
 			expectError: nil,
 		},
@@ -111,7 +114,8 @@ func TestBuild(t *testing.T) {
 			title:     "compile k6 v0.2.0 replace k6ext with missing local module",
 			k6Version: "v0.2.0",
 			mods: []Module{
-				{Path: "go.k6.io/k6ext", ReplacePath: "./testdata/mods/missing/k6ext"},
+				// use FromSlash because Join removes the leading "."
+				{Path: "go.k6.io/k6ext", ReplacePath: filepath.FromSlash("./testdata/mods/missing/k6ext")},
 			},
 			expectError: ErrResolvingDependency,
 		},
@@ -124,6 +128,8 @@ func TestBuild(t *testing.T) {
 
 			platform, _ := ParsePlatform("linux/amd64")
 			opts := NativeBuilderOpts{
+				Stdout: os.Stdout,
+				Stderr: os.Stderr,
 				GoOpts: GoOpts{
 					CopyGoEnv: true,
 					Env: map[string]string{

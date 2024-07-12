@@ -4,7 +4,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // ReadDir reads the content of the files in a directory into a map.
@@ -26,7 +25,7 @@ func ReadDir(rootDir string) (map[string][]byte, error) {
 			return err
 		}
 
-		fileName, _ := strings.CutPrefix(path, rootDir+"/")
+		fileName, _ := filepath.Rel(rootDir, path)
 		files[fileName] = content
 
 		return nil

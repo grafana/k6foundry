@@ -2,7 +2,6 @@
 package goproxy
 
 import (
-	"archive/zip"
 	"bytes"
 	"fmt"
 	"net/http"
@@ -10,6 +9,9 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"golang.org/x/mod/module"
+	"golang.org/x/mod/zip"
 )
 
 const (
@@ -35,7 +37,7 @@ func NewGoProxy() *GoProxy {
 
 // ServeHTTP handles GOPROXY requests
 func (p *GoProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	file := r.URL.Path
+	file := filepath.FromSlash(r.URL.Path)
 	content, found := p.files[file]
 
 	if !found {
@@ -81,21 +83,8 @@ func (p *GoProxy) AddModVersion(
 		return fmt.Errorf("go.mod is required")
 	}
 
-	// create zip file
-	zipRoot := fmt.Sprintf("%s@%s", path, version)
 	zipBuffer := &bytes.Buffer{}
-	zipWriter := zip.NewWriter(zipBuffer)
-	for name, content := range sourceFiles {
-		w, err2 := zipWriter.Create(filepath.Join(zipRoot, name))
-		if err2 != nil {
-			return fmt.Errorf("creating zip file: %w", err2)
-		}
-		_, err2 = w.Write(content)
-		if err2 != nil {
-			return fmt.Errorf("creating zip file: %w", err2)
-		}
-	}
-	err = zipWriter.Close()
+	err = zip.CreateFromDir(zipBuffer, module.Version{Path: path, Version: version}, sourcePath)
 	if err != nil {
 		return fmt.Errorf("creating zip file: %w", err)
 	}
