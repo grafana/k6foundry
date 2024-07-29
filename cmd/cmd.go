@@ -4,9 +4,12 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/grafana/k6foundry"
+	"github.com/grafana/k6foundry/pkg/util"
 
 	"github.com/spf13/cobra"
 )
@@ -59,6 +62,7 @@ func New() *cobra.Command {
 		outPath      string
 		buildOpts    []string
 		verbose      bool
+		logLevelText string
 	)
 
 	cmd := &cobra.Command{
@@ -88,12 +92,27 @@ func New() *cobra.Command {
 			}
 
 			// set builder's output
-
 			if verbose {
 				opts.Stdout = os.Stdout
 				opts.Stderr = os.Stderr
 			}
 
+			// set log
+			logLevel, err := util.ParseLogLevel(logLevelText)
+			if err != nil {
+				return fmt.Errorf("parsing log level %w", err)
+			}
+
+			log := slog.New(
+				slog.NewTextHandler(
+					opts.Stderr,
+					&slog.HandlerOptions{
+						Level: logLevel,
+					},
+				),
+			)
+
+			opts.Logger = log
 			opts.K6Repo = k6Repo
 
 			b, err := k6foundry.NewNativeBuilder(ctx, opts)
@@ -126,7 +145,7 @@ func New() *cobra.Command {
 	cmd.Flags().StringVarP(&platformFlag, "platform", "p", "", "target platform in the format os/arch")
 	cmd.Flags().StringVarP(&outPath, "output", "o", "k6", "path to output file")
 	cmd.Flags().BoolVar(&opts.CopyGoEnv, "copy-go-env", true, "copy current go environment")
-	cmd.Flags().StringVar(&opts.LogLevel, "log-level", "", "log level")
+	cmd.Flags().StringVar(&logLevelText, "log-level", "INFO", "log level")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "verbose build output")
 	cmd.Flags().StringArrayVarP(&buildOpts, "build-opts", "b", []string{}, "go build opts. e.g. -ldflags='-w -s'")
 	cmd.Flags().StringToStringVarP(&opts.Env, "env", "e", nil, "build environment variables")
