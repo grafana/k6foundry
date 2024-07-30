@@ -5,11 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -36,7 +35,7 @@ func main() {
 
 type nativeBuilder struct {
 	NativeBuilderOpts
-	log *logrus.Logger
+	log *slog.Logger
 }
 
 // NativeBuilderOpts defines the options for the Native build environment
@@ -52,7 +51,7 @@ type NativeBuilderOpts struct {
 	// redirect stderr
 	Stderr io.Writer
 	// set log level (INFO, WARN, ERROR)
-	LogLevel string
+	Logger *slog.Logger
 }
 
 // NewDefaultNativeBuilder creates a new native build environment with default options
@@ -69,8 +68,6 @@ func NewDefaultNativeBuilder() (Builder, error) {
 
 // NewNativeBuilder creates a new native build environment with the given options
 func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error) {
-	logLevel := logrus.ErrorLevel
-
 	if opts.Stderr == nil {
 		opts.Stderr = io.Discard
 	}
@@ -79,17 +76,15 @@ func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error
 		opts.Stdout = io.Discard
 	}
 
-	var err error
-	if opts.LogLevel != "" {
-		logLevel, err = logrus.ParseLevel(opts.LogLevel)
-		if err != nil {
-			return nil, fmt.Errorf("parsing log level %w", err)
-		}
-	}
-	log := &logrus.Logger{
-		Out:       os.Stderr, //nolint:forbidigo
-		Formatter: new(logrus.TextFormatter),
-		Level:     logLevel,
+	// set default logger if none passed
+	log := opts.Logger
+	if log == nil {
+		log = slog.New(
+			slog.NewTextHandler(
+				opts.Stderr,
+				&slog.HandlerOptions{},
+			),
+		)
 	}
 
 	return &nativeBuilder{
@@ -114,11 +109,11 @@ func (b *nativeBuilder) Build(
 
 	defer func() {
 		if b.SkipCleanup {
-			b.log.Infof("Skipping cleanup; leaving folder intact: %s", workDir)
+			b.log.Info(fmt.Sprintf("Skipping cleanup. leaving directory %s intact", workDir))
 			return
 		}
 
-		b.log.Infof("Cleaning up work directory: %s", workDir)
+		b.log.Info(fmt.Sprintf("Cleaning up work directory %s", workDir))
 		_ = os.RemoveAll(workDir)
 	}()
 
@@ -140,7 +135,7 @@ func (b *nativeBuilder) Build(
 
 	defer func() {
 		if b.SkipCleanup {
-			b.log.Infof("Skipping go cleanup")
+			b.log.Info("Skipping go cleanup")
 			return
 		}
 		_ = buildEnv.close(ctx)
@@ -221,13 +216,13 @@ func (b *nativeBuilder) addMod(ctx context.Context, e *goEnv, mod Module) (err e
 		}
 	}()
 
-	b.log.Infof("adding dependency %s", mod.String())
+	b.log.Info(fmt.Sprintf("adding dependency %s", mod.String()))
 
 	if mod.ReplacePath == "" {
 		return e.modRequire(ctx, mod.Path, mod.Version)
 	}
 
-	// resolve path to and absolute path because the mod replace will occuer in the work directory
+	// resolve path to and absolute path because the mod replace will occur in the work directory
 	replacePath, err := resolvePath(mod.ReplacePath)
 	if err != nil {
 		return fmt.Errorf("resolving replace path: %w", err)
