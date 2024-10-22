@@ -101,10 +101,10 @@ func (b *nativeBuilder) Build(
 	exts []Module,
 	buildOpts []string,
 	binary io.Writer,
-) error {
+) (*BuildInfo, error) {
 	workDir, err := os.MkdirTemp(os.TempDir(), defaultWorkDir)
 	if err != nil {
-		return fmt.Errorf("creating working directory: %w", err)
+		return nil, fmt.Errorf("creating working directory: %w", err)
 	}
 
 	defer func() {
@@ -130,7 +130,7 @@ func (b *nativeBuilder) Build(
 		b.Stderr,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -141,16 +141,21 @@ func (b *nativeBuilder) Build(
 		_ = buildEnv.close(ctx)
 	}()
 
+	buildInfo := &BuildInfo{
+		Platform:    platform.String(),
+		ModVersions: map[string]string{},
+	}
+
 	b.log.Info("Initializing Go module")
 	err = buildEnv.modInit(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	b.log.Info("Creating k6 main")
 	err = b.createMain(ctx, workDir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	k6Mod := Module{
@@ -159,42 +164,45 @@ func (b *nativeBuilder) Build(
 		ReplacePath: b.K6Repo,
 	}
 
-	err = b.addMod(ctx, buildEnv, k6Mod)
+	modVer, err := b.addMod(ctx, buildEnv, k6Mod)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	buildInfo.ModVersions[defaultK6ModulePath] = modVer
 
 	b.log.Info("importing extensions")
 	for _, m := range exts {
 		err = b.createModuleImport(ctx, workDir, m)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		err = b.addMod(ctx, buildEnv, m)
+		modVer, err = b.addMod(ctx, buildEnv, m)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		buildInfo.ModVersions[m.Path] = modVer
 	}
 
 	b.log.Info("Building k6")
 	err = buildEnv.compile(ctx, k6Binary, buildOpts...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	b.log.Info("Build complete")
 	k6File, err := os.Open(k6Binary) //nolint:gosec
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	_, err = io.Copy(binary, k6File)
 	if err != nil {
-		return fmt.Errorf("copying binary %w", err)
+		return nil, fmt.Errorf("copying binary %w", err)
 	}
 
-	return nil
+	return buildInfo, nil
 }
 
 func (b *nativeBuilder) createMain(_ context.Context, path string) error {
@@ -209,25 +217,36 @@ func (b *nativeBuilder) createMain(_ context.Context, path string) error {
 	return nil
 }
 
-func (b *nativeBuilder) addMod(ctx context.Context, e *goEnv, mod Module) (err error) {
-	defer func() {
-		if err == nil {
-			err = e.modTidy(ctx)
-		}
-	}()
-
+func (b *nativeBuilder) addMod(ctx context.Context, e *goEnv, mod Module) (string, error) {
 	b.log.Info(fmt.Sprintf("adding dependency %s", mod.String()))
 
 	if mod.ReplacePath == "" {
-		return e.modRequire(ctx, mod.Path, mod.Version)
+		if err := e.modRequire(ctx, mod.Path, mod.Version); err != nil {
+			return "", err
+		}
+
+		if err := e.modTidy(ctx); err != nil {
+			return "", err
+		}
+
+		return e.modVersion(ctx, mod.Path)
 	}
 
 	// resolve path to and absolute path because the mod replace will occur in the work directory
 	replacePath, err := resolvePath(mod.ReplacePath)
 	if err != nil {
-		return fmt.Errorf("resolving replace path: %w", err)
+		return "", fmt.Errorf("resolving replace path: %w", err)
 	}
-	return e.modReplace(ctx, mod.Path, mod.Version, replacePath, mod.ReplaceVersion)
+
+	if err := e.modReplace(ctx, mod.Path, mod.Version, replacePath, mod.ReplaceVersion); err != nil {
+		return "", err
+	}
+
+	if err := e.modTidy(ctx); err != nil {
+		return "", err
+	}
+
+	return e.modVersion(ctx, mod.Path)
 }
 
 func resolvePath(path string) (string, error) {

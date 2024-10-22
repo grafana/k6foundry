@@ -11,6 +11,7 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -279,6 +280,20 @@ func (e goEnv) clean(ctx context.Context) error {
 	}
 
 	return err
+}
+
+func (e goEnv) modVersion(_ context.Context, mod string) (string, error) {
+	// can't use runGo because we need the output
+	cmd := exec.Command("go", "list", "-f", "{{.Version}}", "-m", mod)
+	cmd.Env = e.env
+	cmd.Dir = e.workDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("list module %s", err.Error())
+	}
+
+	// list will return '\n'
+	return strings.Trim(string(out), "\n"), nil
 }
 
 func mapToSlice(m map[string]string) []string {

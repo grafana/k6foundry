@@ -63,6 +63,7 @@ func New() *cobra.Command {
 		buildOpts    []string
 		verbose      bool
 		logLevelText string
+		listVersions bool
 	)
 
 	cmd := &cobra.Command{
@@ -127,9 +128,18 @@ func New() *cobra.Command {
 			}
 
 			defer outFile.Close() //nolint:errcheck
-			err = b.Build(ctx, platform, k6Version, mods, buildOpts, outFile)
+			buildInfo, err := b.Build(ctx, platform, k6Version, mods, buildOpts, outFile)
+			if err != nil {
+				return err
+			}
 
-			return err
+			if listVersions {
+				for m, v := range buildInfo.ModVersions {
+					fmt.Printf("%s: %s\n", m, v)
+				}
+			}
+
+			return nil
 		},
 	}
 
@@ -151,6 +161,7 @@ func New() *cobra.Command {
 	cmd.Flags().StringToStringVarP(&opts.Env, "env", "e", nil, "build environment variables")
 	cmd.Flags().BoolVarP(&opts.TmpCache, "tmp-cache", "t", false, "use a temporary go cache."+
 		"Forces downloading all dependencies.")
+	cmd.Flags().BoolVar(&listVersions, "list-versions", false, "list built versions")
 
 	return cmd
 }

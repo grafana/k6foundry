@@ -6,6 +6,12 @@ import (
 	"io"
 )
 
+// BuildInfo describes the binary
+type BuildInfo struct {
+	Platform    string
+	ModVersions map[string]string
+}
+
 // Builder defines the interface for building a k6 binary
 type Builder interface {
 	// Build returns a custom k6 binary for the given version including a set of dependencies
@@ -16,5 +22,5 @@ type Builder interface {
 		mods []Module,
 		buildOpts []string,
 		out io.Writer,
-	) error
+	) (*BuildInfo, error)
 }
