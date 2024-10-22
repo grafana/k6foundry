@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/grafana/k6foundry/pkg/testutils/goproxy"
@@ -58,12 +59,19 @@ func TestBuild(t *testing.T) {
 		k6Version   string
 		mods        []Module
 		expectError error
+		expect      *BuildInfo
 	}{
 		{
 			title:       "compile k6 v0.1.0",
 			k6Version:   "v0.1.0",
 			mods:        []Module{},
 			expectError: nil,
+			expect: &BuildInfo{
+				Platform: "linux/amd64",
+				ModVersions: map[string]string{
+					"go.k6.io/k6": "v0.1.0",
+				},
+			},
 		},
 		{
 			title:       "compile k6 missing version (v0.3.0)",
@@ -76,6 +84,12 @@ func TestBuild(t *testing.T) {
 			k6Version:   "latest",
 			mods:        []Module{},
 			expectError: nil,
+			expect: &BuildInfo{
+				Platform: "linux/amd64",
+				ModVersions: map[string]string{
+					"go.k6.io/k6": "v0.2.0",
+				},
+			},
 		},
 		{
 			title:     "compile k6 v0.1.0 with k6ext v0.1.0",
@@ -84,6 +98,13 @@ func TestBuild(t *testing.T) {
 				{Path: "go.k6.io/k6ext", Version: "v0.1.0"},
 			},
 			expectError: nil,
+			expect: &BuildInfo{
+				Platform: "linux/amd64",
+				ModVersions: map[string]string{
+					"go.k6.io/k6":    "v0.1.0",
+					"go.k6.io/k6ext": "v0.1.0",
+				},
+			},
 		},
 		{
 			title:     "compile k6 v0.1.0 with missing k6ext (v0.2.0)",
@@ -100,6 +121,13 @@ func TestBuild(t *testing.T) {
 				{Path: "go.k6.io/k6ext/v2", Version: "v2.0.0"},
 			},
 			expectError: nil,
+			expect: &BuildInfo{
+				Platform: "linux/amd64",
+				ModVersions: map[string]string{
+					"go.k6.io/k6":       "v0.2.0",
+					"go.k6.io/k6ext/v2": "v2.0.0",
+				},
+			},
 		},
 		{
 			title:     "compile k6 v0.2.0 replace k6ext with local module",
@@ -109,6 +137,13 @@ func TestBuild(t *testing.T) {
 				{Path: "go.k6.io/k6ext", ReplacePath: filepath.FromSlash("./testdata/mods/k6ext")},
 			},
 			expectError: nil,
+			expect: &BuildInfo{
+				Platform: "linux/amd64",
+				ModVersions: map[string]string{
+					"go.k6.io/k6":    "v0.2.0",
+					"go.k6.io/k6ext": "v0.0.0-00010101000000-000000000000",
+				},
+			},
 		},
 		{
 			title:     "compile k6 v0.2.0 replace k6ext with missing local module",
@@ -148,7 +183,7 @@ func TestBuild(t *testing.T) {
 			}
 
 			outFile := &bytes.Buffer{}
-			err = b.Build(
+			buildInfo, err := b.Build(
 				context.Background(),
 				platform,
 				tc.k6Version,
@@ -161,8 +196,16 @@ func TestBuild(t *testing.T) {
 				t.Fatalf("expected %v got %v", tc.expectError, err)
 			}
 
-			if tc.expectError == nil && outFile.Len() == 0 {
+			if tc.expectError != nil {
+				return
+			}
+
+			if outFile.Len() == 0 {
 				t.Fatal("out file is empty")
+			}
+
+			if !reflect.DeepEqual(buildInfo, tc.expect) {
+				t.Fatalf("expected %v got %v", tc.expect, buildInfo)
 			}
 		})
 	}
