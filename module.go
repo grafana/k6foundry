@@ -34,6 +34,7 @@ type Module struct {
 	ReplaceVersion string
 }
 
+// String returns a string representation of the module following go format package [=> replacement]
 func (m Module) String() string {
 	replace := ""
 	if m.ReplacePath != "" {
@@ -44,6 +45,28 @@ func (m Module) String() string {
 		replace = fmt.Sprintf(" => %s%s", m.ReplacePath, replaceVer)
 	}
 	return fmt.Sprintf("%s@%s%s", m.Path, m.Version, replace)
+}
+
+// Module returns the go module's path and version
+func (m Module) Module() string {
+	if m.Version == "" {
+		return m.Path
+	}
+
+	return fmt.Sprintf("%s@%s", m.Path, m.Version)
+}
+
+// Replace returns the go module's replace, if any
+func (m Module) Replace() string {
+	if m.ReplacePath == "" {
+		return ""
+	}
+
+	if m.ReplaceVersion != "" {
+		return m.ReplacePath
+	}
+
+	return fmt.Sprintf("%s%s", m.ReplacePath, m.ReplaceVersion)
 }
 
 // ParseModule parses a module from a string of the form path[@version][=replace[@version]]
