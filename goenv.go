@@ -247,7 +247,9 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 
 func (e goEnv) modReplace(ctx context.Context, modulePath, moduleVersion, replacePath, replaceVersion string) error {
 	if moduleVersion != "" {
-		modulePath += "@" + moduleVersion
+		if moduleVersion != "latest" {
+			modulePath += "@" + moduleVersion
+		}
 	}
 
 	if replaceVersion != "" {
