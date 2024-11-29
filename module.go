@@ -35,6 +35,11 @@ type Module struct {
 }
 
 func (m Module) String() string {
+	version := m.Version
+	if version == "" {
+		version = "latest"
+	}
+
 	replace := ""
 	if m.ReplacePath != "" {
 		replaceVer := ""
@@ -43,7 +48,8 @@ func (m Module) String() string {
 		}
 		replace = fmt.Sprintf(" => %s%s", m.ReplacePath, replaceVer)
 	}
-	return fmt.Sprintf("%s@%s%s", m.Path, m.Version, replace)
+
+	return fmt.Sprintf("%s@%s%s", m.Path, version, replace)
 }
 
 // ParseModule parses a module from a string of the form path[@version][=replace[@version]]
