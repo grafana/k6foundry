@@ -21,18 +21,21 @@ func RuntimePlatform() Platform {
 }
 
 // NewPlatform creates a new Platform given the os and arch
-func NewPlatform(os, arch string) Platform {
-	return Platform{OS: os, Arch: arch}
+func NewPlatform(os, arch string) (Platform, error) {
+	if !isSupported(os, arch) {
+		return Platform{}, fmt.Errorf("%w: %s/%s", ErrInvalidPlatform, os, arch)
+	}
+	return Platform{OS: os, Arch: arch}, nil
 }
 
 // ParsePlatform parses a string of the format os/arch and returns the corresponding platform
 func ParsePlatform(str string) (Platform, error) {
-	idx := strings.IndexRune(str, '/')
-	if idx <= 0 || idx == len(str)-1 {
+	os, arch, found := strings.Cut(str, "/")
+	if !found || os == "" || arch == "" {
 		return Platform{}, fmt.Errorf("%w: %s", ErrInvalidPlatform, str)
 	}
 
-	return NewPlatform(str[:idx], str[idx+1:]), nil
+	return NewPlatform(os, arch)
 }
 
 // String returns the platform in the format os/arch
@@ -40,10 +43,10 @@ func (p Platform) String() string {
 	return p.OS + "/" + p.Arch
 }
 
-// Supported indicates is the given platform is supported
-func (p Platform) Supported() bool {
+// isSupported indicates is the given platform is supported
+func isSupported(os string, arch string) bool {
 	for _, plat := range supported {
-		if plat.OS == p.OS && plat.Arch == p.Arch {
+		if os == plat.OS && arch == plat.Arch {
 			return true
 		}
 	}
