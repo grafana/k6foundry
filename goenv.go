@@ -233,9 +233,11 @@ func (e goEnv) modTidy(ctx context.Context) error {
 }
 
 func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string) error {
-	if moduleVersion != "" {
-		modulePath += "@" + moduleVersion
+	if moduleVersion == "" {
+		moduleVersion = "latest"
 	}
+
+	modulePath += "@" + moduleVersion
 
 	err := e.runGo(ctx, e.getTimeout, "mod", "edit", "-require", modulePath)
 	if err != nil {
@@ -246,7 +248,7 @@ func (e goEnv) modRequire(ctx context.Context, modulePath, moduleVersion string)
 }
 
 func (e goEnv) modReplace(ctx context.Context, modulePath, moduleVersion, replacePath, replaceVersion string) error {
-	if moduleVersion != "" {
+	if moduleVersion != "" && moduleVersion != "latest" {
 		modulePath += "@" + moduleVersion
 	}
 

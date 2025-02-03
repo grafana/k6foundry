@@ -37,9 +37,19 @@ func TestBuild(t *testing.T) {
 			source:  filepath.Join("testdata", "mods", "k6ext"),
 		},
 		{
+			path:    "go.k6.io/k6ext",
+			version: "v0.2.0",
+			source:  filepath.Join("testdata", "mods", "k6ext"),
+		},
+		{
 			path:    "go.k6.io/k6ext/v2",
 			version: "v2.0.0",
 			source:  filepath.Join("testdata", "mods", "k6extV2"),
+		},
+		{
+			path:    "go.k6.io/k6ext3",
+			version: "v0.1.0",
+			source:  filepath.Join("testdata", "mods", "k6ext3"),
 		},
 	}
 
@@ -62,7 +72,7 @@ func TestBuild(t *testing.T) {
 		expect      *BuildInfo
 	}{
 		{
-			title:       "compile k6 v0.1.0",
+			title:       "build k6 v0.1.0",
 			k6Version:   "v0.1.0",
 			mods:        []Module{},
 			expectError: nil,
@@ -74,13 +84,7 @@ func TestBuild(t *testing.T) {
 			},
 		},
 		{
-			title:       "compile k6 missing version (v0.3.0)",
-			k6Version:   "v0.3.0",
-			mods:        []Module{},
-			expectError: ErrResolvingDependency,
-		},
-		{
-			title:       "compile k6 latest",
+			title:       "build k6 latest",
 			k6Version:   "latest",
 			mods:        []Module{},
 			expectError: nil,
@@ -92,7 +96,13 @@ func TestBuild(t *testing.T) {
 			},
 		},
 		{
-			title:     "compile k6 v0.1.0 with k6ext v0.1.0",
+			title:       "build k6 missing version (v0.3.0)",
+			k6Version:   "v0.3.0",
+			mods:        []Module{},
+			expectError: ErrResolvingDependency,
+		},
+		{
+			title:     "build with k6ext v0.1.0",
 			k6Version: "v0.1.0",
 			mods: []Module{
 				{Path: "go.k6.io/k6ext", Version: "v0.1.0"},
@@ -107,15 +117,30 @@ func TestBuild(t *testing.T) {
 			},
 		},
 		{
-			title:     "compile k6 v0.1.0 with missing k6ext (v0.2.0)",
-			k6Version: "v0.2.0",
+			title:     "build with k6ext latest",
+			k6Version: "v0.1.0",
 			mods: []Module{
-				{Path: "go.k6.io/k6ext", Version: "v0.2.0"},
+				{Path: "go.k6.io/k6ext"},
+			},
+			expectError: nil,
+			expect: &BuildInfo{
+				Platform: "linux/amd64",
+				ModVersions: map[string]string{
+					"go.k6.io/k6":    "v0.1.0",
+					"go.k6.io/k6ext": "v0.2.0",
+				},
+			},
+		},
+		{
+			title:     "build with missing k6ext version (v0.3.0)",
+			k6Version: "v0.1.0",
+			mods: []Module{
+				{Path: "go.k6.io/k6ext", Version: "v0.3.0"},
 			},
 			expectError: ErrResolvingDependency,
 		},
 		{
-			title:     "compile k6 v0.2.0 with k6extV2 (v2.0.0)",
+			title:     "build versioned path k6extV2 (v2.0.0)",
 			k6Version: "v0.2.0",
 			mods: []Module{
 				{Path: "go.k6.io/k6ext/v2", Version: "v2.0.0"},
@@ -130,8 +155,8 @@ func TestBuild(t *testing.T) {
 			},
 		},
 		{
-			title:     "compile k6 v0.2.0 replace k6ext with local module",
-			k6Version: "v0.2.0",
+			title:     "build k6ext with local module replace",
+			k6Version: "v0.1.0",
 			mods: []Module{
 				// use FromSlash because Join removes the leading "."
 				{Path: "go.k6.io/k6ext", ReplacePath: filepath.FromSlash("./testdata/mods/k6ext")},
@@ -140,19 +165,101 @@ func TestBuild(t *testing.T) {
 			expect: &BuildInfo{
 				Platform: "linux/amd64",
 				ModVersions: map[string]string{
-					"go.k6.io/k6":    "v0.2.0",
+					"go.k6.io/k6":    "v0.1.0",
 					"go.k6.io/k6ext": "v0.0.0-00010101000000-000000000000",
 				},
 			},
 		},
 		{
-			title:     "compile k6 v0.2.0 replace k6ext with missing local module",
-			k6Version: "v0.2.0",
+			title:     "build k6ext with missing replace path",
+			k6Version: "v0.1.0",
 			mods: []Module{
 				// use FromSlash because Join removes the leading "."
 				{Path: "go.k6.io/k6ext", ReplacePath: filepath.FromSlash("./testdata/mods/missing/k6ext")},
 			},
 			expectError: ErrResolvingDependency,
+		},
+		{
+			title:     "build private k6ext2 module without replace path",
+			k6Version: "v0.1.0",
+			mods: []Module{
+				// use FromSlash because Join removes the leading "."
+				{Path: "private.io/k6ext2"},
+			},
+			expectError: ErrResolvingDependency,
+			expect: &BuildInfo{
+				Platform: "linux/amd64",
+				ModVersions: map[string]string{
+					"go.k6.io/k6":       "v0.1.0",
+					"private.io/k6ext2": "v0.0.0-00010101000000-000000000000",
+				},
+			},
+		},
+		{
+			title:     "build private k6ext2 module with replace path",
+			k6Version: "v0.1.0",
+			mods: []Module{
+				// use FromSlash because Join removes the leading "."
+				{Path: "private.io/k6ext2", ReplacePath: filepath.FromSlash("./testdata/mods/k6ext2")},
+			},
+			expectError: nil,
+			expect: &BuildInfo{
+				Platform: "linux/amd64",
+				ModVersions: map[string]string{
+					"go.k6.io/k6":       "v0.1.0",
+					"private.io/k6ext2": "v0.0.0-00010101000000-000000000000",
+				},
+			},
+		},
+		{
+			title:     "build private k6ext2 module v0.1.0 with replace path",
+			k6Version: "v0.1.0",
+			mods: []Module{
+				// use FromSlash because Join removes the leading "."
+				{Path: "private.io/k6ext2", Version: "v0.1.0", ReplacePath: filepath.FromSlash("./testdata/mods/k6ext2")},
+			},
+			expectError: nil,
+			expect: &BuildInfo{
+				Platform: "linux/amd64",
+				ModVersions: map[string]string{
+					"go.k6.io/k6":       "v0.1.0",
+					"private.io/k6ext2": "v0.1.0",
+				},
+			},
+		},
+		{
+			title:     "build mix of private and public modules",
+			k6Version: "v0.1.0",
+			mods: []Module{
+				// use FromSlash because Join removes the leading "."
+				{Path: "go.k6.io/k6ext", Version: "v0.1.0"},
+				{Path: "private.io/k6ext2", ReplacePath: filepath.FromSlash("./testdata/mods/k6ext2")},
+			},
+			expectError: nil,
+			expect: &BuildInfo{
+				Platform: "linux/amd64",
+				ModVersions: map[string]string{
+					"go.k6.io/k6":       "v0.1.0",
+					"go.k6.io/k6ext":    "v0.1.0",
+					"private.io/k6ext2": "v0.0.0-00010101000000-000000000000",
+				},
+			},
+		},
+		{
+			title:     "replace ext with ext3",
+			k6Version: "v0.1.0",
+			mods: []Module{
+				// use FromSlash because Join removes the leading "."
+				{Path: "go.k6.io/k6ext", Version: "v0.1.0", ReplacePath: "go.k6.io/k6ext3", ReplaceVersion: "v0.1.0"},
+			},
+			expectError: nil,
+			expect: &BuildInfo{
+				Platform: "linux/amd64",
+				ModVersions: map[string]string{
+					"go.k6.io/k6":    "v0.1.0",
+					"go.k6.io/k6ext": "v0.1.0",
+				},
+			},
 		},
 	}
 
@@ -162,11 +269,13 @@ func TestBuild(t *testing.T) {
 			t.Parallel()
 
 			platform, _ := ParsePlatform("linux/amd64")
+
 			opts := NativeBuilderOpts{
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
 				GoOpts: GoOpts{
 					CopyGoEnv: true,
+					// configure go to use local goproxy to resolve go.k6.io modules
 					Env: map[string]string{
 						"GOPROXY":   goproxySrv.URL,
 						"GONOPROXY": "none",
