@@ -99,6 +99,7 @@ func (b *nativeBuilder) Build(
 	platform Platform,
 	k6Version string,
 	exts []Module,
+	replacements []Module,
 	buildOpts []string,
 	binary io.Writer,
 ) (*BuildInfo, error) {
@@ -150,6 +151,14 @@ func (b *nativeBuilder) Build(
 	err = buildEnv.modInit(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	// apply replacements
+	for _, r := range replacements {
+		err = b.addReplacement(ctx, buildEnv, r)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	b.log.Info("Creating k6 main")
@@ -215,6 +224,22 @@ func (b *nativeBuilder) createMain(_ context.Context, path string) error {
 	}
 
 	return nil
+}
+
+func (b *nativeBuilder) addReplacement(ctx context.Context, e *goEnv, rep Module) error {
+	if rep.ReplacePath == "" {
+		return fmt.Errorf("replace path is required")
+	}
+
+	b.log.Info(fmt.Sprintf("replacing dependency %s", rep.String()))
+
+	// resolve path to and absolute path because the mod replace will occur in the work directory
+	replacePath, err := resolvePath(rep.ReplacePath)
+	if err != nil {
+		return fmt.Errorf("resolving replace path: %w", err)
+	}
+
+	return e.modReplace(ctx, rep.Path, rep.Version, replacePath, rep.ReplaceVersion)
 }
 
 func (b *nativeBuilder) addMod(ctx context.Context, e *goEnv, mod Module) (string, error) {
