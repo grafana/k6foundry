@@ -33,13 +33,14 @@ func main() {
 `
 )
 
-type nativeBuilder struct {
-	NativeBuilderOpts
+// native is a foundry backed by th golang toolchain
+type native struct {
+	NativeFoundryOpts
 	log *slog.Logger
 }
 
-// NativeBuilderOpts defines the options for the Native build environment
-type NativeBuilderOpts struct {
+// NativeFoundryOpts defines the options for the Native foundry
+type NativeFoundryOpts struct {
 	// options used for running go
 	GoOpts
 	// use alternative k6 repository
@@ -54,11 +55,11 @@ type NativeBuilderOpts struct {
 	Logger *slog.Logger
 }
 
-// NewDefaultNativeBuilder creates a new native build environment with default options
-func NewDefaultNativeBuilder() (Builder, error) {
-	return NewNativeBuilder(
+// NewDefaultNativeFoundry creates a new native build environment with default options
+func NewDefaultNativeFoundry() (Foundry, error) {
+	return NewNativeFoundry(
 		context.TODO(),
-		NativeBuilderOpts{
+		NativeFoundryOpts{
 			GoOpts: GoOpts{
 				CopyGoEnv: true,
 			},
@@ -66,8 +67,8 @@ func NewDefaultNativeBuilder() (Builder, error) {
 	)
 }
 
-// NewNativeBuilder creates a new native build environment with the given options
-func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error) {
+// NewNativeFoundry creates a new native build environment with the given options
+func NewNativeFoundry(_ context.Context, opts NativeFoundryOpts) (Foundry, error) {
 	if opts.Stderr == nil {
 		opts.Stderr = io.Discard
 	}
@@ -87,14 +88,14 @@ func NewNativeBuilder(_ context.Context, opts NativeBuilderOpts) (Builder, error
 		)
 	}
 
-	return &nativeBuilder{
-		NativeBuilderOpts: opts,
+	return &native{
+		NativeFoundryOpts: opts,
 		log:               log,
 	}, nil
 }
 
 // Build builds a custom k6 binary for a target platform with the given dependencies into the out io.Writer
-func (b *nativeBuilder) Build(
+func (b *native) Build(
 	ctx context.Context,
 	platform Platform,
 	k6Version string,
@@ -214,7 +215,7 @@ func (b *nativeBuilder) Build(
 	return buildInfo, nil
 }
 
-func (b *nativeBuilder) createMain(_ context.Context, path string) error {
+func (b *native) createMain(_ context.Context, path string) error {
 	// write the main module file
 	mainPath := filepath.Join(path, "main.go")
 	mainContent := fmt.Sprintf(mainModuleTemplate, defaultK6ModulePath)
@@ -226,7 +227,7 @@ func (b *nativeBuilder) createMain(_ context.Context, path string) error {
 	return nil
 }
 
-func (b *nativeBuilder) addReplacement(ctx context.Context, e *goEnv, rep Module) error {
+func (b *native) addReplacement(ctx context.Context, e *goEnv, rep Module) error {
 	if rep.ReplacePath == "" {
 		return fmt.Errorf("replace path is required")
 	}
@@ -242,7 +243,7 @@ func (b *nativeBuilder) addReplacement(ctx context.Context, e *goEnv, rep Module
 	return e.modReplace(ctx, rep.Path, rep.Version, replacePath, rep.ReplaceVersion)
 }
 
-func (b *nativeBuilder) addMod(ctx context.Context, e *goEnv, mod Module) (string, error) {
+func (b *native) addMod(ctx context.Context, e *goEnv, mod Module) (string, error) {
 	b.log.Info(fmt.Sprintf("adding dependency %s", mod.String()))
 
 	if mod.ReplacePath == "" {
@@ -291,7 +292,7 @@ func resolvePath(path string) (string, error) {
 	return path, nil
 }
 
-func (b *nativeBuilder) createModuleImport(_ context.Context, path string, mod Module) error {
+func (b *native) createModuleImport(_ context.Context, path string, mod Module) error {
 	modImportFile := filepath.Join(path, strings.ReplaceAll(mod.Path, "/", "_")+".go")
 	modImportContent := fmt.Sprintf(modImportTemplate, mod.Path)
 	err := os.WriteFile(modImportFile, []byte(modImportContent), 0o600)

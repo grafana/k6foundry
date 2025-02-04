@@ -12,8 +12,8 @@ type BuildInfo struct {
 	ModVersions map[string]string
 }
 
-// Builder defines the interface for building a k6 binary
-type Builder interface {
+// Foundry defines the interface for building a k6 binary
+type Foundry interface {
 	// Build returns a custom k6 binary for the given version including a set of dependencies
 	// The binary is build fo the given Platform
 	// The mods parameter is a list of modules to include in the build. Modules can specify its own

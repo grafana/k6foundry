@@ -54,7 +54,7 @@ k6foundry build --tmp-cache=true
 // New creates new cobra command for build command.
 func New() *cobra.Command {
 	var (
-		opts         k6foundry.NativeBuilderOpts
+		opts         k6foundry.NativeFoundryOpts
 		deps         []string
 		k6Version    string
 		k6Repo       string
@@ -92,7 +92,7 @@ func New() *cobra.Command {
 				mods = append(mods, mod)
 			}
 
-			// set builder's output
+			// set build output
 			if verbose {
 				opts.Stdout = os.Stdout
 				opts.Stderr = os.Stderr
@@ -116,7 +116,7 @@ func New() *cobra.Command {
 			opts.Logger = log
 			opts.K6Repo = k6Repo
 
-			b, err := k6foundry.NewNativeBuilder(ctx, opts)
+			b, err := k6foundry.NewNativeFoundry(ctx, opts)
 			if err != nil {
 				return err
 			}
