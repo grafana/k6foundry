@@ -35,9 +35,9 @@ type Module struct {
 }
 
 func (m Module) String() string {
-	version := m.Version
-	if version == "" {
-		version = "latest"
+	version := ""
+	if m.Version != "" {
+		version = "@" + m.Version
 	}
 
 	replace := ""
@@ -49,7 +49,7 @@ func (m Module) String() string {
 		replace = fmt.Sprintf(" => %s%s", m.ReplacePath, replaceVer)
 	}
 
-	return fmt.Sprintf("%s@%s%s", m.Path, version, replace)
+	return fmt.Sprintf("%s%s%s", m.Path, version, replace)
 }
 
 // ParseModule parses a module from a string of the form path[@version][=replace[@version]]
@@ -63,10 +63,6 @@ func ParseModule(modString string) (Module, error) {
 
 	if err = module.CheckPath(path); err != nil {
 		return Module{}, fmt.Errorf("%w: %w", ErrInvalidDependencyFormat, err)
-	}
-
-	if version == "" {
-		version = "latest"
 	}
 
 	// TODO: should we enforce the versioned path or reject if it not conformant?

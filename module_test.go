@@ -35,7 +35,7 @@ func TestParseModule(t *testing.T) {
 			dependency: "github.com/path/module",
 			expect: Module{
 				Path:    "github.com/path/module",
-				Version: "latest",
+				Version: "",
 			},
 		},
 		{
@@ -75,7 +75,7 @@ func TestParseModule(t *testing.T) {
 			dependency: "github.com/path/module=github.com/another/module@v0.1.0",
 			expect: Module{
 				Path:           "github.com/path/module",
-				Version:        "latest",
+				Version:        "",
 				ReplacePath:    "github.com/another/module",
 				ReplaceVersion: "v0.1.0",
 			},
@@ -85,7 +85,7 @@ func TestParseModule(t *testing.T) {
 			dependency: "github.com/path/module=github.com/another/module",
 			expect: Module{
 				Path:           "github.com/path/module",
-				Version:        "latest",
+				Version:        "",
 				ReplacePath:    "github.com/another/module",
 				ReplaceVersion: "",
 			},
@@ -95,7 +95,7 @@ func TestParseModule(t *testing.T) {
 			dependency: "github.com/path/module=./another/module",
 			expect: Module{
 				Path:           "github.com/path/module",
-				Version:        "latest",
+				Version:        "",
 				ReplacePath:    "./another/module",
 				ReplaceVersion: "",
 			},
