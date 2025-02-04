@@ -272,7 +272,7 @@ func TestBuild(t *testing.T) {
 
 			platform, _ := ParsePlatform("linux/amd64")
 
-			opts := NativeBuilderOpts{
+			opts := NativeFoundryOpts{
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
 				GoOpts: GoOpts{
@@ -288,7 +288,7 @@ func TestBuild(t *testing.T) {
 				},
 			}
 
-			b, err := NewNativeBuilder(context.Background(), opts)
+			b, err := NewNativeFoundry(context.Background(), opts)
 			if err != nil {
 				t.Fatalf("setting up test %v", err)
 			}
