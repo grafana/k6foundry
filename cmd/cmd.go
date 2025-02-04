@@ -128,7 +128,15 @@ func New() *cobra.Command {
 			}
 
 			defer outFile.Close() //nolint:errcheck
-			buildInfo, err := b.Build(ctx, platform, k6Version, mods, buildOpts, outFile)
+			buildInfo, err := b.Build(
+				ctx,
+				platform,
+				k6Version,
+				mods,
+				[]k6foundry.Module{},
+				buildOpts,
+				outFile,
+			)
 			if err != nil {
 				return err
 			}

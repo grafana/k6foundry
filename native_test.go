@@ -222,7 +222,8 @@ func TestBuild(t *testing.T) {
 			expect: &BuildInfo{
 				Platform: "linux/amd64",
 				ModVersions: map[string]string{
-					"go.k6.io/k6":       "v0.1.0",
+					"go.k6.io/k6": "v0.1.0",
+					// the goproxy will not serve this module
 					"private.io/k6ext2": "v0.1.0",
 				},
 			},
@@ -233,6 +234,7 @@ func TestBuild(t *testing.T) {
 			mods: []Module{
 				// use FromSlash because Join removes the leading "."
 				{Path: "go.k6.io/k6ext", Version: "v0.1.0"},
+				// the goproxy will not serve this module
 				{Path: "private.io/k6ext2", ReplacePath: filepath.FromSlash("./testdata/mods/k6ext2")},
 			},
 			expectError: nil,
@@ -297,6 +299,7 @@ func TestBuild(t *testing.T) {
 				platform,
 				tc.k6Version,
 				tc.mods,
+				[]Module{},
 				[]string{},
 				outFile,
 			)
