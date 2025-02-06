@@ -112,6 +112,11 @@ func TestParseModule(t *testing.T) {
 				Path: "module",
 			},
 		},
+		{
+			title:       "empty module",
+			dependency:  "",
+			expectError: ErrInvalidDependencyFormat,
+		},
 	}
 
 	for _, tc := range testCases {

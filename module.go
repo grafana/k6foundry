@@ -58,17 +58,17 @@ func ParseModule(modString string) (Module, error) {
 
 	path, version, err := splitPathVersion(mod)
 	if err != nil {
-		return Module{}, fmt.Errorf("%w: %q", err, mod)
+		return Module{}, err
 	}
 
 	if err = checkPath(path); err != nil {
-		return Module{}, fmt.Errorf("%w: %w", ErrInvalidDependencyFormat, err)
+		return Module{}, err
 	}
 
 	// TODO: should we enforce the versioned path or reject if it not conformant?
 	path, err = versionedPath(path, version)
 	if err != nil {
-		return Module{}, fmt.Errorf("%w: %q", err, mod)
+		return Module{}, err
 	}
 
 	replacePath, replaceVersion, err := replace(replaceMod)
@@ -92,7 +92,7 @@ func checkPath(path string) error {
 	}
 
 	if err := module.CheckPath(path); err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrInvalidDependencyFormat, err)
 	}
 
 	return nil
