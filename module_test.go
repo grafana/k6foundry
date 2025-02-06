@@ -105,6 +105,13 @@ func TestParseModule(t *testing.T) {
 			dependency:  "github.com/path/module=./another/module@v0.1.0",
 			expectError: ErrInvalidDependencyFormat,
 		},
+		{
+			title:      "only module name",
+			dependency: "module",
+			expect: Module{
+				Path: "module",
+			},
+		},
 	}
 
 	for _, tc := range testCases {

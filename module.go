@@ -61,7 +61,7 @@ func ParseModule(modString string) (Module, error) {
 		return Module{}, fmt.Errorf("%w: %q", err, mod)
 	}
 
-	if err = module.CheckPath(path); err != nil {
+	if err = checkPath(path); err != nil {
 		return Module{}, fmt.Errorf("%w: %w", ErrInvalidDependencyFormat, err)
 	}
 
@@ -82,6 +82,20 @@ func ParseModule(modString string) (Module, error) {
 		ReplacePath:    replacePath,
 		ReplaceVersion: replaceVersion,
 	}, nil
+}
+
+// check if the path adheres to the go module path format.
+// also accepts a path with only the module name
+func checkPath(path string) error {
+	if !strings.Contains(path, "/") {
+		return nil
+	}
+
+	if err := module.CheckPath(path); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func replace(replaceMod string) (string, string, error) {
