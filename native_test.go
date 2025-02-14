@@ -51,6 +51,11 @@ func TestBuild(t *testing.T) {
 			version: "v0.1.0",
 			source:  filepath.Join("testdata", "mods", "k6ext3"),
 		},
+		{
+			path:    "private.k6.io/k6",
+			version: "v0.3.0",
+			source:  filepath.Join("testdata", "mods", "k6"),
+		},
 	}
 
 	// creates a goproxy that serves the given modules
@@ -67,6 +72,7 @@ func TestBuild(t *testing.T) {
 	testCases := []struct {
 		title       string
 		k6Version   string
+		k6Repo      string
 		mods        []Module
 		expectError error
 		expect      *BuildInfo
@@ -100,6 +106,19 @@ func TestBuild(t *testing.T) {
 			k6Version:   "v0.3.0",
 			mods:        []Module{},
 			expectError: ErrResolvingDependency,
+		},
+		{
+			title:       "build k6 from replacement repo",
+			k6Version:   "v0.3.0",
+			k6Repo:      "private.k6.io/k6",
+			mods:        []Module{},
+			expectError: nil,
+			expect: &BuildInfo{
+				Platform: "linux/amd64",
+				ModVersions: map[string]string{
+					"go.k6.io/k6": "v0.0.0-00010101000000-000000000000",
+				},
+			},
 		},
 		{
 			title:     "build with k6ext v0.1.0",
@@ -281,11 +300,12 @@ func TestBuild(t *testing.T) {
 					Env: map[string]string{
 						"GOPROXY":   goproxySrv.URL,
 						"GONOPROXY": "none",
-						"GOPRIVATE": "go.k6.io",
-						"GONOSUMDB": "go.k6.io",
+						"GOPRIVATE": "go.k6.io,private.k6.io",
+						"GONOSUMDB": "go.k6.io,private.k6.io",
 					},
 					TmpCache: true,
 				},
+				K6Repo: tc.k6Repo,
 			}
 
 			b, err := NewNativeFoundry(context.Background(), opts)
