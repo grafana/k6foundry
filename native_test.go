@@ -108,7 +108,7 @@ func TestBuild(t *testing.T) {
 			expectError: ErrResolvingDependency,
 		},
 		{
-			title:       "build k6 from private repo",
+			title:       "build k6 from replacement repo",
 			k6Version:   "v0.3.0",
 			k6Repo:      "private.k6.io/k6",
 			mods:        []Module{},
