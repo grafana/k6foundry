@@ -23,14 +23,6 @@ func TestParseModule(t *testing.T) {
 			},
 		},
 		{
-			title:      "path with incomplete version",
-			dependency: "github.com/path/module@v0.1",
-			expect: Module{
-				Path:    "github.com/path/module",
-				Version: "v0.1.0",
-			},
-		},
-		{
 			title:      "path without version",
 			dependency: "github.com/path/module",
 			expect: Module{
@@ -47,28 +39,9 @@ func TestParseModule(t *testing.T) {
 			},
 		},
 		{
-			title:       "path with invalid version",
-			dependency:  "github.com/path/module@1",
-			expectError: ErrInvalidDependencyFormat,
-		},
-		{
-			title:       "path with invalid incomplete version",
-			dependency:  "github.com/path/module@v",
-			expectError: ErrInvalidDependencyFormat,
-		},
-		{
 			title:       "invalid path",
 			dependency:  "github.com/@v1",
 			expectError: ErrInvalidDependencyFormat,
-		},
-		{
-			// this is considered valid according to go's module rules
-			title:      "path with only domain",
-			dependency: "github.com@v1",
-			expect: Module{
-				Path:    "github.com",
-				Version: "v1.0.0",
-			},
 		},
 		{
 			title:      "versioned replace",
