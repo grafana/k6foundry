@@ -104,6 +104,8 @@ func (b *native) Build(
 	buildOpts []string,
 	binary io.Writer,
 ) (*BuildInfo, error) {
+	var err error
+
 	workDir, err := os.MkdirTemp(os.TempDir(), defaultWorkDir)
 	if err != nil {
 		return nil, fmt.Errorf("creating working directory: %w", err)
@@ -162,30 +164,18 @@ func (b *native) Build(
 		}
 	}
 
-	b.log.Info("Creating k6 main")
-	err = b.createMain(ctx, workDir)
-	if err != nil {
-		return nil, err
-	}
-
-	k6ReplaceVersion := ""
 	if b.K6Repo != "" {
-		k6ReplaceVersion = k6Version
-		k6Version = ""
+		err = buildEnv.modRequire(ctx, defaultK6ModulePath, "")
+		if err != nil {
+			return nil, err
+		}
+		if k6Version != "" {
+			err = buildEnv.modReplace(ctx, defaultK6ModulePath, "", b.K6Repo, k6Version)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	k6Mod := Module{
-		Path:           defaultK6ModulePath,
-		Version:        k6Version,
-		ReplacePath:    b.K6Repo,
-		ReplaceVersion: k6ReplaceVersion,
-	}
-
-	modVer, err := b.addMod(ctx, buildEnv, k6Mod)
-	if err != nil {
-		return nil, err
-	}
-
-	buildInfo.ModVersions[defaultK6ModulePath] = modVer
 
 	b.log.Info("importing extensions")
 	for _, m := range exts {
@@ -194,11 +184,34 @@ func (b *native) Build(
 			return nil, err
 		}
 
-		modVer, err = b.addMod(ctx, buildEnv, m)
+		modVer, err := b.addMod(ctx, buildEnv, m)
 		if err != nil {
 			return nil, err
 		}
 		buildInfo.ModVersions[m.Path] = modVer
+	}
+
+	err = buildEnv.modTidy(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	b.log.Info("Creating k6 main")
+	err = b.createMain(ctx, workDir)
+	if err != nil {
+		return nil, err
+	}
+
+	if b.K6Repo == "" && k6Version != "" {
+		err = buildEnv.modRequire(ctx, defaultK6ModulePath, k6Version)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = buildEnv.modTidy(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	b.log.Info("Building k6")
@@ -206,6 +219,13 @@ func (b *native) Build(
 	if err != nil {
 		return nil, err
 	}
+
+	// get actual k6 module version
+	k6Modver, err := buildEnv.modVersion(ctx, defaultK6ModulePath)
+	if err != nil {
+		return nil, err
+	}
+	buildInfo.ModVersions[defaultK6ModulePath] = k6Modver
 
 	b.log.Info("Build complete")
 	k6File, err := os.Open(k6Binary) //nolint:gosec
