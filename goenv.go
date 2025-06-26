@@ -115,6 +115,10 @@ func newGoEnv(
 	// ensure path is set
 	env["PATH"] = os.Getenv("PATH")
 
+	// Ensure proxy settings are set
+	env["HTTP_PROXY"] = os.Getenv("HTTP_PROXY")
+	env["HTTPS_PROXY"] = os.Getenv("HTTPS_PROXY")
+
 	// override platform
 	env["GOOS"] = platform.OS
 	env["GOARCH"] = platform.Arch
@@ -141,7 +145,7 @@ func (e goEnv) close(ctx context.Context) error {
 	var err error
 
 	if e.tmpCache {
-		// clean caches, otherwirse directories can't be deleted
+		// clean caches, otherwise directories can't be deleted
 		err = e.clean(ctx)
 	}
 
