@@ -116,7 +116,7 @@ func TestBuild(t *testing.T) {
 			expect: &BuildInfo{
 				Platform: "linux/amd64",
 				ModVersions: map[string]string{
-					"go.k6.io/k6": "v0.0.0-00010101000000-000000000000",
+					"go.k6.io/k6": "v0.3.0",
 				},
 			},
 		},
