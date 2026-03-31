@@ -308,6 +308,26 @@ func (e goEnv) modVersion(ctx context.Context, mod string) (string, error) {
 	return version, nil
 }
 
+// listModules returns the paths of all modules in the current module graph.
+func (e goEnv) listModules(ctx context.Context) ([]string, error) {
+	// can't use runGo because we need the output
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-f", "{{.Path}}", "all")
+	cmd.Env = e.env
+	cmd.Dir = e.workDir
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("listing modules: %w", err)
+	}
+
+	var modules []string
+	for line := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
+		if line != "" {
+			modules = append(modules, line)
+		}
+	}
+	return modules, nil
+}
+
 func mapToSlice(m map[string]string) []string {
 	s := make([]string, 0, len(m))
 	for k, v := range m {
