@@ -12,6 +12,13 @@ type BuildInfo struct {
 	ModVersions map[string]string
 }
 
+func newBuildInfo(platform string) *BuildInfo {
+	return &BuildInfo{
+		Platform:    platform,
+		ModVersions: make(map[string]string),
+	}
+}
+
 // Foundry defines the interface for building a k6 binary
 type Foundry interface {
 	// Build returns a custom k6 binary for the given version including a set of dependencies
