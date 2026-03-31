@@ -11,8 +11,6 @@ import (
 )
 
 const (
-	defaultK6ModulePath = "go.k6.io/k6"
-
 	defaultWorkDir = "k6foundry*"
 
 	mainModuleTemplate = `package main
@@ -44,6 +42,10 @@ type NativeFoundryOpts struct {
 	GoOpts
 	// use alternative k6 repository
 	K6Repo string
+	// K6MajorVersion overrides the k6 major version used to determine the module path.
+	// Only used when the k6Version passed to Build is not a valid semver (e.g. "latest" or a commit SHA).
+	// Example: set to "v2" to build against go.k6.io/k6/v2@latest.
+	K6MajorVersion string
 	// don't cleanup work environment (useful for debugging)
 	SkipCleanup bool
 	// redirect stdout
@@ -142,13 +144,18 @@ func (b *native) Build(
 		}
 	}
 
+	k6ModPath, err := k6ModulePath(k6Version, b.K6MajorVersion)
+	if err != nil {
+		return nil, fmt.Errorf("determining k6 module path: %w", err)
+	}
+
 	b.log.Info("Creating k6 main")
-	err = b.createMain(ctx, workDir)
+	err = b.createMain(ctx, workDir, k6ModPath)
 	if err != nil {
 		return nil, err
 	}
 
-	err = b.handleK6Overrides(ctx, k6Version, buildEnv, buildInfo)
+	err = b.handleK6Overrides(ctx, k6Version, k6ModPath, buildEnv, buildInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -159,6 +166,8 @@ func (b *native) Build(
 		return nil, err
 	}
 
+	b.warnK6VersionConflicts(ctx, k6ModPath, buildEnv, buildInfo)
+
 	b.log.Info("Building k6")
 	err = buildEnv.compile(ctx, k6Binary, buildOpts...)
 	if err != nil {
@@ -166,17 +175,23 @@ func (b *native) Build(
 	}
 
 	b.log.Info("Build complete")
-	k6File, err := os.Open(k6Binary) //nolint:gosec,forbidigo
-	if err != nil {
+	if err = b.copyBinary(k6Binary, binary); err != nil {
 		return nil, err
 	}
 
-	_, err = io.Copy(binary, k6File)
-	if err != nil {
-		return nil, fmt.Errorf("copying binary %w", err)
-	}
-
 	return buildInfo, nil
+}
+
+func (b *native) copyBinary(path string, dst io.Writer) error {
+	f, err := os.Open(path) //nolint:gosec,forbidigo
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(dst, f)
+	if err != nil {
+		return fmt.Errorf("copying binary %w", err)
+	}
+	return nil
 }
 
 func (b *native) cleanupWorkDir(workDir string) {
@@ -195,14 +210,16 @@ func (b *native) cleanupBuildEnv(ctx context.Context, buildEnv *goEnv) {
 	_ = buildEnv.close(ctx)
 }
 
-func (b *native) handleK6Overrides(ctx context.Context, k6Version string, buildEnv *goEnv, buildInfo *BuildInfo) error {
+func (b *native) handleK6Overrides(
+	ctx context.Context, k6Version, k6ModPath string, buildEnv *goEnv, buildInfo *BuildInfo,
+) error {
 	k6ReplaceVersion := ""
 	if b.K6Repo != "" {
 		k6ReplaceVersion = k6Version
 		k6Version = ""
 	}
 	k6Mod := Module{
-		Path:           defaultK6ModulePath,
+		Path:           k6ModPath,
 		Version:        k6Version,
 		ReplacePath:    b.K6Repo,
 		ReplaceVersion: k6ReplaceVersion,
@@ -213,7 +230,7 @@ func (b *native) handleK6Overrides(ctx context.Context, k6Version string, buildE
 		return err
 	}
 
-	buildInfo.ModVersions[defaultK6ModulePath] = modVer
+	buildInfo.ModVersions[k6ModPath] = modVer
 	return nil
 }
 
@@ -235,10 +252,10 @@ func (b *native) importModules(
 	return nil
 }
 
-func (b *native) createMain(_ context.Context, path string) error {
+func (b *native) createMain(_ context.Context, path string, k6ModPath string) error {
 	// write the main module file
 	mainPath := filepath.Join(path, "main.go")
-	mainContent := fmt.Sprintf(mainModuleTemplate, defaultK6ModulePath)
+	mainContent := fmt.Sprintf(mainModuleTemplate, k6ModPath)
 	err := os.WriteFile(mainPath, []byte(mainContent), 0o600) //nolint:forbidigo
 	if err != nil {
 		return fmt.Errorf("writing main file %w", err)
@@ -310,6 +327,36 @@ func resolvePath(path string) (string, error) {
 	}
 
 	return path, nil
+}
+
+// warnK6VersionConflicts checks the resolved module graph for k6 major versions other than
+// the one being built. This occurs when an extension depends on a different k6 major version
+// (e.g. a v1 extension used in a k6 v2 build). The build succeeds but those extensions will
+// silently register with an inactive k6 runtime and have no effect at runtime.
+func (b *native) warnK6VersionConflicts(ctx context.Context, k6ModPath string, buildEnv *goEnv, buildInfo *BuildInfo) {
+	modules, err := buildEnv.listModules(ctx)
+	if err != nil {
+		b.log.Warn(fmt.Sprintf("could not check for k6 version conflicts: %s", err))
+		return
+	}
+
+	for _, mod := range modules {
+		if mod == k6ModPath {
+			continue
+		}
+		if mod == k6BaseModulePath || strings.HasPrefix(mod, k6BaseModulePath+"/v") {
+			msg := fmt.Sprintf(
+				"conflicting k6 versions detected: building %s but %s is also in the module graph; "+
+					"extensions depending on %s will not be active",
+				k6ModPath, mod, mod,
+			)
+			b.log.Warn(msg)
+			buildInfo.Warnings = append(buildInfo.Warnings, Warning{
+				Code:    WarnK6VersionConflict,
+				Message: msg,
+			})
+		}
+	}
 }
 
 func (b *native) createModuleImport(_ context.Context, path string, mod Module) error {

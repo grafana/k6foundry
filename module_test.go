@@ -5,6 +5,112 @@ import (
 	"testing"
 )
 
+func TestK6ModulePath(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		title         string
+		version       string
+		majorOverride string
+		expect        string
+		expectError   error
+	}{
+		{
+			title:   "v0 version",
+			version: "v0.55.0",
+			expect:  "go.k6.io/k6",
+		},
+		{
+			title:   "v1 version",
+			version: "v1.0.0",
+			expect:  "go.k6.io/k6",
+		},
+		{
+			title:   "v2 version",
+			version: "v2.0.0",
+			expect:  "go.k6.io/k6/v2",
+		},
+		{
+			title:   "v3 version",
+			version: "v3.0.0",
+			expect:  "go.k6.io/k6/v3",
+		},
+		{
+			title:   "pre-release v2 version",
+			version: "v2.0.0-rc1",
+			expect:  "go.k6.io/k6/v2",
+		},
+		{
+			title:   "latest without override",
+			version: "latest",
+			expect:  "go.k6.io/k6",
+		},
+		{
+			title:         "latest with v2 override",
+			version:       "latest",
+			majorOverride: "v2",
+			expect:        "go.k6.io/k6/v2",
+		},
+		{
+			title:         "latest with v3 override",
+			version:       "latest",
+			majorOverride: "v3",
+			expect:        "go.k6.io/k6/v3",
+		},
+		{
+			title:         "latest with v1 override",
+			version:       "latest",
+			majorOverride: "v1",
+			expect:        "go.k6.io/k6",
+		},
+		{
+			title:         "latest with v0 override",
+			version:       "latest",
+			majorOverride: "v0",
+			expect:        "go.k6.io/k6",
+		},
+		{
+			title:         "commit SHA with v2 override",
+			version:       "abc123def456",
+			majorOverride: "v2",
+			expect:        "go.k6.io/k6/v2",
+		},
+		{
+			title:         "semver takes precedence over override",
+			version:       "v2.0.0",
+			majorOverride: "v3",
+			expect:        "go.k6.io/k6/v2",
+		},
+		{
+			title:         "invalid majorOverride",
+			version:       "latest",
+			majorOverride: "notvalid",
+			expectError:   ErrInvalidDependencyFormat,
+		},
+		{
+			title:         "majorOverride without v prefix",
+			version:       "latest",
+			majorOverride: "2",
+			expectError:   ErrInvalidDependencyFormat,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.title, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := k6ModulePath(tc.version, tc.majorOverride)
+			if !errors.Is(err, tc.expectError) {
+				t.Fatalf("expected error %v got %v", tc.expectError, err)
+			}
+
+			if tc.expectError == nil && result != tc.expect {
+				t.Fatalf("expected %q got %q", tc.expect, result)
+			}
+		})
+	}
+}
+
 func TestParseModule(t *testing.T) {
 	t.Parallel()
 
