@@ -285,15 +285,14 @@ func TestBuild(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.title, func(t *testing.T) {
 			t.Parallel()
 
 			platform, _ := ParsePlatform("linux/amd64")
 
 			opts := NativeFoundryOpts{
-				Stdout: os.Stdout,
-				Stderr: os.Stderr,
+				Stdout: os.Stdout, //nolint:forbidigo
+				Stderr: os.Stderr, //nolint:forbidigo
 				GoOpts: GoOpts{
 					CopyGoEnv: true,
 					// configure go to use local goproxy to resolve go.k6.io modules

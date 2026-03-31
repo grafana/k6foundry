@@ -1,4 +1,3 @@
-//nolint:forbidigo,revive,funlen
 package k6foundry
 
 import (
@@ -104,28 +103,19 @@ func (b *native) Build(
 	buildOpts []string,
 	binary io.Writer,
 ) (*BuildInfo, error) {
-	workDir, err := os.MkdirTemp(os.TempDir(), defaultWorkDir)
+	workDir, err := os.MkdirTemp(os.TempDir(), defaultWorkDir) //nolint:forbidigo
 	if err != nil {
 		return nil, fmt.Errorf("creating working directory: %w", err)
 	}
 
-	defer func() {
-		if b.SkipCleanup {
-			b.log.Info(fmt.Sprintf("Skipping cleanup. leaving directory %s intact", workDir))
-			return
-		}
-
-		b.log.Info(fmt.Sprintf("Cleaning up work directory %s", workDir))
-		_ = os.RemoveAll(workDir)
-	}()
+	defer b.cleanupWorkDir(workDir)
 
 	// prepare the build environment
 	b.log.Info("Building new k6 binary (native)")
 
 	k6Binary := filepath.Join(workDir, "k6")
 
-	buildEnv, err := newGoEnv(
-		workDir,
+	buildEnv, err := newGoEnv(workDir,
 		b.GoOpts,
 		platform,
 		b.Stdout,
@@ -135,19 +125,9 @@ func (b *native) Build(
 		return nil, err
 	}
 
-	defer func() {
-		if b.SkipCleanup {
-			b.log.Info("Skipping go cleanup")
-			return
-		}
-		_ = buildEnv.close(ctx)
-	}()
+	defer b.cleanupBuildEnv(ctx, buildEnv)
 
-	buildInfo := &BuildInfo{
-		Platform:    platform.String(),
-		ModVersions: map[string]string{},
-	}
-
+	buildInfo := newBuildInfo(platform.String())
 	b.log.Info("Initializing Go module")
 	err = buildEnv.modInit(ctx)
 	if err != nil {
@@ -168,6 +148,54 @@ func (b *native) Build(
 		return nil, err
 	}
 
+	err = b.handleK6Overrides(ctx, k6Version, buildEnv, buildInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	b.log.Info("importing extensions")
+	err = b.importModules(ctx, exts, workDir, buildEnv, buildInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	b.log.Info("Building k6")
+	err = buildEnv.compile(ctx, k6Binary, buildOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	b.log.Info("Build complete")
+	k6File, err := os.Open(k6Binary) //nolint:gosec,forbidigo
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = io.Copy(binary, k6File)
+	if err != nil {
+		return nil, fmt.Errorf("copying binary %w", err)
+	}
+
+	return buildInfo, nil
+}
+
+func (b *native) cleanupWorkDir(workDir string) {
+	if b.SkipCleanup {
+		b.log.Info(fmt.Sprintf("Skipping cleanup. leaving directory %s intact", workDir))
+	}
+
+	b.log.Info(fmt.Sprintf("Cleaning up work directory %s", workDir))
+	_ = os.RemoveAll(workDir) //nolint:forbidigo
+}
+
+func (b *native) cleanupBuildEnv(ctx context.Context, buildEnv *goEnv) {
+	if b.SkipCleanup {
+		b.log.Info("Skipping go cleanup")
+	}
+	_ = buildEnv.close(ctx)
+}
+
+func (b *native) handleK6Overrides(ctx context.Context, k6Version string, buildEnv *goEnv, buildInfo *BuildInfo) error {
 	k6ReplaceVersion := ""
 	if b.K6Repo != "" {
 		k6ReplaceVersion = k6Version
@@ -182,50 +210,36 @@ func (b *native) Build(
 
 	modVer, err := b.addMod(ctx, buildEnv, k6Mod)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	buildInfo.ModVersions[defaultK6ModulePath] = modVer
+	return nil
+}
 
-	b.log.Info("importing extensions")
+func (b *native) importModules(
+	ctx context.Context, exts []Module, workDir string, buildEnv *goEnv, buildInfo *BuildInfo,
+) error {
 	for _, m := range exts {
-		err = b.createModuleImport(ctx, workDir, m)
+		err := b.createModuleImport(ctx, workDir, m)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		modVer, err = b.addMod(ctx, buildEnv, m)
+		modVer, err := b.addMod(ctx, buildEnv, m)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		buildInfo.ModVersions[m.Path] = modVer
 	}
-
-	b.log.Info("Building k6")
-	err = buildEnv.compile(ctx, k6Binary, buildOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	b.log.Info("Build complete")
-	k6File, err := os.Open(k6Binary) //nolint:gosec
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = io.Copy(binary, k6File)
-	if err != nil {
-		return nil, fmt.Errorf("copying binary %w", err)
-	}
-
-	return buildInfo, nil
+	return nil
 }
 
 func (b *native) createMain(_ context.Context, path string) error {
 	// write the main module file
 	mainPath := filepath.Join(path, "main.go")
 	mainContent := fmt.Sprintf(mainModuleTemplate, defaultK6ModulePath)
-	err := os.WriteFile(mainPath, []byte(mainContent), 0o600)
+	err := os.WriteFile(mainPath, []byte(mainContent), 0o600) //nolint:forbidigo
 	if err != nil {
 		return fmt.Errorf("writing main file %w", err)
 	}
@@ -285,7 +299,7 @@ func resolvePath(path string) (string, error) {
 	var err error
 	// expand environment variables
 	if strings.Contains(path, "$") {
-		path = os.ExpandEnv(path)
+		path = os.ExpandEnv(path) //nolint:forbidigo
 	}
 
 	if strings.HasPrefix(path, ".") {
@@ -301,7 +315,7 @@ func resolvePath(path string) (string, error) {
 func (b *native) createModuleImport(_ context.Context, path string, mod Module) error {
 	modImportFile := filepath.Join(path, strings.ReplaceAll(mod.Path, "/", "_")+".go")
 	modImportContent := fmt.Sprintf(modImportTemplate, mod.Path)
-	err := os.WriteFile(modImportFile, []byte(modImportContent), 0o600)
+	err := os.WriteFile(modImportFile, []byte(modImportContent), 0o600) //nolint:forbidigo
 	if err != nil {
 		return fmt.Errorf("writing mod file %w", err)
 	}
