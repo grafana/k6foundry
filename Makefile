@@ -1,11 +1,7 @@
 work_dir = $(shell pwd)
 GOLANGCI_CONFIG ?= .golangci.yml
 
-all: build
-
-.PHONY: build
-build:
-	go build -o build/k6foundry ./cmd/k6foundry
+all: lint test
 
 ## linter-config: Checks if the linter config exists, if not, downloads it from the main k6 repository.
 .PHONY: linter-config
