@@ -197,6 +197,7 @@ func (b *native) copyBinary(path string, dst io.Writer) error {
 func (b *native) cleanupWorkDir(workDir string) {
 	if b.SkipCleanup {
 		b.log.Info(fmt.Sprintf("Skipping cleanup. leaving directory %s intact", workDir))
+		return
 	}
 
 	b.log.Info(fmt.Sprintf("Cleaning up work directory %s", workDir))
@@ -206,6 +207,7 @@ func (b *native) cleanupWorkDir(workDir string) {
 func (b *native) cleanupBuildEnv(ctx context.Context, buildEnv *goEnv) {
 	if b.SkipCleanup {
 		b.log.Info("Skipping go cleanup")
+		return
 	}
 	_ = buildEnv.close(ctx)
 }
