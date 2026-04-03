@@ -3,7 +3,7 @@ GOLANGCI_CONFIG ?= .golangci.yml
 
 all: lint test
 
-## linter-config: Checks if the linter config exists, if not, downloads it from the main k6 repository.
+## linter-config: Checks if the linter config test, if not, downloads it from the main k6 repository.
 .PHONY: linter-config
 linter-config:
 	test -s "${GOLANGCI_CONFIG}" || (echo "No linter config, downloading from main k6 repository..." && curl --silent --show-error --fail --no-location https://raw.githubusercontent.com/grafana/k6/master/.golangci.yml --output "${GOLANGCI_CONFIG}")
