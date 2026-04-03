@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-// WarningCode identifies the type of a non-fatal build warning.
+// WarningCode identifies the type of a non-fatal test warning.
 type WarningCode string
 
 const (
