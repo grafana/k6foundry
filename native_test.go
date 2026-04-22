@@ -94,7 +94,8 @@ func TestBuild(t *testing.T) {
 			mods:        []Module{},
 			expectError: nil,
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6": "v0.1.0",
 				},
@@ -106,7 +107,8 @@ func TestBuild(t *testing.T) {
 			mods:        []Module{},
 			expectError: nil,
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6": "v0.2.0",
 				},
@@ -125,7 +127,8 @@ func TestBuild(t *testing.T) {
 			mods:        []Module{},
 			expectError: nil,
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6": "v0.3.0",
 				},
@@ -139,7 +142,8 @@ func TestBuild(t *testing.T) {
 			},
 			expectError: nil,
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6":    "v0.1.0",
 					"go.k6.io/k6ext": "v0.1.0",
@@ -154,7 +158,8 @@ func TestBuild(t *testing.T) {
 			},
 			expectError: nil,
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6":    "v0.1.0",
 					"go.k6.io/k6ext": "v0.2.0",
@@ -177,7 +182,8 @@ func TestBuild(t *testing.T) {
 			},
 			expectError: nil,
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6":       "v0.2.0",
 					"go.k6.io/k6ext/v2": "v2.0.0",
@@ -193,7 +199,8 @@ func TestBuild(t *testing.T) {
 			},
 			expectError: nil,
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6":    "v0.1.0",
 					"go.k6.io/k6ext": "v0.0.0-00010101000000-000000000000",
@@ -234,7 +241,8 @@ func TestBuild(t *testing.T) {
 			},
 			expectError: nil,
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6":       "v0.1.0",
 					"private.io/k6ext2": "v0.0.0-00010101000000-000000000000",
@@ -250,7 +258,8 @@ func TestBuild(t *testing.T) {
 			},
 			expectError: nil,
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6": "v0.1.0",
 					// the goproxy will not serve this module
@@ -269,7 +278,8 @@ func TestBuild(t *testing.T) {
 			},
 			expectError: nil,
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6":       "v0.1.0",
 					"go.k6.io/k6ext":    "v0.1.0",
@@ -286,7 +296,8 @@ func TestBuild(t *testing.T) {
 			},
 			expectError: nil,
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6":    "v0.1.0",
 					"go.k6.io/k6ext": "v0.1.0",
@@ -298,7 +309,8 @@ func TestBuild(t *testing.T) {
 			k6Version: "v2.0.0",
 			mods:      []Module{},
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6/v2",
 				ModVersions: map[string]string{
 					"go.k6.io/k6/v2": "v2.0.0",
 				},
@@ -310,7 +322,8 @@ func TestBuild(t *testing.T) {
 			k6MajorVersion: "v2",
 			mods:           []Module{},
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6/v2",
 				ModVersions: map[string]string{
 					"go.k6.io/k6/v2": "v2.1.0",
 				},
@@ -323,7 +336,8 @@ func TestBuild(t *testing.T) {
 				{Path: "go.k6.io/k6ext", Version: "v0.1.0"},
 			},
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6/v2",
 				ModVersions: map[string]string{
 					"go.k6.io/k6/v2": "v2.0.0",
 					"go.k6.io/k6ext": "v0.1.0",
@@ -432,7 +446,8 @@ func TestBuildVersionedExtensions(t *testing.T) {
 			k6Version: "v0.1.0",
 			mods:      []Module{{Path: "go.k6.io/k6extforv1", Version: "v0.1.0"}},
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6":         "v0.1.0",
 					"go.k6.io/k6extforv1": "v0.1.0",
@@ -445,7 +460,8 @@ func TestBuildVersionedExtensions(t *testing.T) {
 			k6Version: "v2.0.0",
 			mods:      []Module{{Path: "go.k6.io/k6extforv2", Version: "v0.1.0"}},
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6/v2",
 				ModVersions: map[string]string{
 					"go.k6.io/k6/v2":      "v2.0.0",
 					"go.k6.io/k6extforv2": "v0.1.0",
@@ -462,7 +478,8 @@ func TestBuildVersionedExtensions(t *testing.T) {
 			k6Version: "v2.0.0",
 			mods:      []Module{{Path: "go.k6.io/k6extforv1", Version: "v0.1.0"}},
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6/v2",
 				ModVersions: map[string]string{
 					"go.k6.io/k6/v2":      "v2.0.0",
 					"go.k6.io/k6extforv1": "v0.1.0",
@@ -477,7 +494,8 @@ func TestBuildVersionedExtensions(t *testing.T) {
 			k6Version: "v0.1.0",
 			mods:      []Module{{Path: "go.k6.io/k6extforv2", Version: "v0.1.0"}},
 			expect: &BuildInfo{
-				Platform: "linux/amd64",
+				Platform:  "linux/amd64",
+				K6ModPath: "go.k6.io/k6",
 				ModVersions: map[string]string{
 					"go.k6.io/k6":         "v0.1.0",
 					"go.k6.io/k6extforv2": "v0.1.0",
