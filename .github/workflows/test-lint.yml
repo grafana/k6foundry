@@ -11,6 +11,6 @@ on:
 
 jobs:
   checks:
-    uses: grafana/k6-ci/.github/workflows/all.yml@d63b56ec93af9ebfeedbfb21050865e163cf4a25 # main
+    uses: grafana/k6-ci/.github/workflows/all.yml@013dae575c6e433d4b2490c3809559956343d76c # main
     with:
       skip-extension-testing: true
