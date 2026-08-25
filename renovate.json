@@ -3,5 +3,6 @@
   "extends": [
     "github>grafana/grafana-renovate-config//presets/k6/k6-engine-base.json",
     "github>grafana/grafana-renovate-config//presets/k6/k6-engine-automerge.json"
-  ]
+  ],
+  "ignorePaths": ["testdata/**"]
 }
