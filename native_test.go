@@ -515,6 +515,7 @@ func TestBuildOrigin(t *testing.T) {
 	for _, m := range []struct {
 		version, source string
 	}{
+		{"v2.0.0", filepath.Join("testdata", "mods", "k6v2")},
 		{"v2.3.0", filepath.Join("testdata", "mods", "k6v2origin")},
 	} {
 		if err := proxy.AddModVersion("go.k6.io/k6/v2", m.version, m.source); err != nil {
@@ -544,6 +545,11 @@ func TestBuildOrigin(t *testing.T) {
 				"-X=" + v2Build + ".FromArgs=args -X=" + v2Build + ".BuildOrigin=caller",
 			},
 			expect: "build_origin=xk6 from_goflags=goflags from_args=args\n",
+		},
+		{
+			title:     "k6 without the origin variable builds",
+			k6Version: "v2.0.0",
+			origin:    "xk6",
 		},
 	}
 
