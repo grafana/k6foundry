@@ -6,8 +6,10 @@ import (
 	"errors"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/grafana/k6foundry/pkg/testutils/goproxy"
@@ -407,6 +409,200 @@ func TestBuild(t *testing.T) {
 
 			if !reflect.DeepEqual(buildInfo, tc.expect) {
 				t.Fatalf("expected %v got %v", tc.expect, buildInfo)
+			}
+		})
+	}
+}
+
+func TestBuildArgsWithOrigin(t *testing.T) {
+	t.Parallel()
+
+	const (
+		v1Mod = "go.k6.io/k6"
+		v2Mod = "go.k6.io/k6/v2"
+		stamp = "-X=go.k6.io/k6/v2/internal/build.BuildOrigin="
+	)
+
+	testCases := []struct {
+		title     string
+		goflags   string
+		buildArgs []string
+		k6ModPath string
+		origin    string
+		expect    []string
+	}{
+		{
+			title:     "empty origin",
+			goflags:   "-ldflags=-X=other.Var=fromGoflags",
+			buildArgs: []string{"-tags=foo", "-ldflags=-s"},
+			k6ModPath: v2Mod,
+			expect:    []string{"-tags=foo", "-ldflags=-s"},
+		},
+		{
+			title:     "k6 v1 module path",
+			buildArgs: []string{"-tags=foo", "-ldflags=-s"},
+			k6ModPath: v1Mod,
+			origin:    "xk6",
+			expect:    []string{"-tags=foo", "-ldflags=-s"},
+		},
+		{
+			title:     "origin alone",
+			buildArgs: []string{},
+			k6ModPath: v2Mod,
+			origin:    "xk6",
+			expect:    []string{"-ldflags=" + stamp + "xk6"},
+		},
+		{
+			title:     "xk6 default linker options",
+			buildArgs: []string{"-trimpath", "-ldflags=-s -w"},
+			k6ModPath: v2Mod,
+			origin:    "xk6",
+			expect: []string{
+				"-ldflags=-s -w " + stamp + "xk6",
+				"-trimpath",
+			},
+		},
+		{
+			title:     "quoted multi-option ldflags from GOFLAGS",
+			goflags:   `'-ldflags=-s -w'`,
+			k6ModPath: v2Mod,
+			origin:    "xk6",
+			expect:    []string{"-ldflags=-s -w " + stamp + "xk6"},
+		},
+		{
+			title:     "ldflags from GOFLAGS and explicit build arguments merged",
+			goflags:   "-ldflags=-X=other.Var=fromGoflags",
+			buildArgs: []string{"-tags=foo", "-ldflags", "-X=other.Var=fromArgs"},
+			k6ModPath: v2Mod,
+			origin:    "xk6",
+			expect: []string{
+				"-ldflags=-X=other.Var=fromGoflags -X=other.Var=fromArgs " + stamp + "xk6",
+				"-tags=foo",
+			},
+		},
+		{
+			title:     "package-qualified linker value preserved",
+			buildArgs: []string{"-ldflags=all=-s"},
+			k6ModPath: v2Mod,
+			origin:    "xk6",
+			expect:    []string{"-ldflags=all=-s " + stamp + "xk6"},
+		},
+		{
+			title:     "caller assignment to BuildOrigin overridden",
+			buildArgs: []string{"-ldflags=" + stamp + "caller"},
+			k6ModPath: v2Mod,
+			origin:    "xk6",
+			expect:    []string{"-ldflags=" + stamp + "caller " + stamp + "xk6"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.title, func(t *testing.T) {
+			t.Parallel()
+
+			got := buildArgsWithOrigin(tc.goflags, tc.buildArgs, tc.k6ModPath, tc.origin)
+			if !slices.Equal(got, tc.expect) {
+				t.Fatalf("expected %q got %q", tc.expect, got)
+			}
+		})
+	}
+}
+
+func TestBuildOrigin(t *testing.T) {
+	t.Parallel()
+
+	proxy := goproxy.NewGoProxy()
+	for _, m := range []struct {
+		version, source string
+	}{
+		{"v2.0.0", filepath.Join("testdata", "mods", "k6v2")},
+		{"v2.3.0", filepath.Join("testdata", "mods", "k6v2origin")},
+	} {
+		if err := proxy.AddModVersion("go.k6.io/k6/v2", m.version, m.source); err != nil {
+			t.Fatalf("setup proxy: %v", err)
+		}
+	}
+	proxySrv := httptest.NewServer(proxy)
+	t.Cleanup(proxySrv.Close)
+
+	const v2Build = "go.k6.io/k6/v2/internal/build"
+
+	testCases := []struct {
+		title     string
+		k6Version string
+		origin    string
+		goflags   string
+		buildArgs []string
+		expect    string
+	}{
+		{
+			title:     "origin preserves caller linker options and overrides the caller assignment",
+			k6Version: "v2.3.0",
+			origin:    "xk6",
+			goflags:   `'-ldflags=-X=` + v2Build + `.FromGoflags=goflags'`,
+			buildArgs: []string{
+				"-ldflags",
+				"-X=" + v2Build + ".FromArgs=args -X=" + v2Build + ".BuildOrigin=caller",
+			},
+			expect: "build_origin=xk6 from_goflags=goflags from_args=args\n",
+		},
+		{
+			title:     "k6 without the origin variable builds",
+			k6Version: "v2.0.0",
+			origin:    "xk6",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.title, func(t *testing.T) {
+			t.Parallel()
+
+			platform := RuntimePlatform()
+
+			opts := NativeFoundryOpts{
+				Stdout: os.Stdout, //nolint:forbidigo
+				Stderr: os.Stderr, //nolint:forbidigo
+				GoOpts: GoOpts{
+					CopyGoEnv: true,
+					Env: map[string]string{
+						"GOPROXY":   proxySrv.URL,
+						"GONOPROXY": "none",
+						"GOPRIVATE": "go.k6.io",
+						"GONOSUMDB": "go.k6.io",
+						"GOFLAGS":   tc.goflags,
+					},
+					TmpCache: true,
+				},
+				BuildOrigin: tc.origin,
+			}
+
+			b, err := NewNativeFoundry(t.Context(), opts)
+			if err != nil {
+				t.Fatalf("setting up test %v", err)
+			}
+
+			binary := &bytes.Buffer{}
+			_, err = b.Build(t.Context(), platform, tc.k6Version, []Module{}, []Module{}, tc.buildArgs, binary)
+			if err != nil {
+				t.Fatalf("unexpected error %v", err)
+			}
+
+			binPath := filepath.Join(t.TempDir(), "k6")
+			if platform.OS == "windows" {
+				binPath += ".exe"
+			}
+
+			if err = os.WriteFile(binPath, binary.Bytes(), 0o700); err != nil { //nolint:forbidigo
+				t.Fatalf("writing binary %v", err)
+			}
+
+			out, err := exec.CommandContext(t.Context(), binPath).Output()
+			if err != nil {
+				t.Fatalf("running binary %v", err)
+			}
+
+			if string(out) != tc.expect {
+				t.Fatalf("expected %q got %q", tc.expect, string(out))
 			}
 		})
 	}
