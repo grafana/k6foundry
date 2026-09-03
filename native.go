@@ -182,6 +182,35 @@ func (b *native) Build(
 	return buildInfo, nil
 }
 
+// splitGoflags mirrors go's own GOFLAGS parsing so a quoted setting stays intact and an inner quote
+// stays literal, and strings.Fields cannot serve.
+func splitGoflags(goflags string) []string {
+	const space = " \t\n\r"
+
+	var settings []string
+	for {
+		goflags = strings.TrimLeft(goflags, space)
+		if goflags == "" {
+			return settings
+		}
+
+		if quote := goflags[:1]; quote == "'" || quote == `"` {
+			setting, rest, _ := strings.Cut(goflags[1:], quote)
+			settings = append(settings, setting)
+			goflags = rest
+			continue
+		}
+
+		end := strings.IndexAny(goflags, space)
+		if end < 0 {
+			return append(settings, goflags)
+		}
+
+		settings = append(settings, goflags[:end])
+		goflags = goflags[end:]
+	}
+}
+
 func (b *native) copyBinary(path string, dst io.Writer) error {
 	f, err := os.Open(path) //nolint:gosec,forbidigo
 	if err != nil {
