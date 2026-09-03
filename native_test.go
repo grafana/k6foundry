@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -502,6 +503,100 @@ func TestBuildArgsWithOrigin(t *testing.T) {
 			got := buildArgsWithOrigin(tc.goflags, tc.buildArgs, tc.k6ModPath, tc.origin)
 			if !slices.Equal(got, tc.expect) {
 				t.Fatalf("expected %q got %q", tc.expect, got)
+			}
+		})
+	}
+}
+
+func TestBuildOrigin(t *testing.T) {
+	t.Parallel()
+
+	proxy := goproxy.NewGoProxy()
+	for _, m := range []struct {
+		version, source string
+	}{
+		{"v2.3.0", filepath.Join("testdata", "mods", "k6v2origin")},
+	} {
+		if err := proxy.AddModVersion("go.k6.io/k6/v2", m.version, m.source); err != nil {
+			t.Fatalf("setup proxy: %v", err)
+		}
+	}
+	proxySrv := httptest.NewServer(proxy)
+	t.Cleanup(proxySrv.Close)
+
+	const v2Build = "go.k6.io/k6/v2/internal/build"
+
+	testCases := []struct {
+		title     string
+		k6Version string
+		origin    string
+		goflags   string
+		buildArgs []string
+		expect    string
+	}{
+		{
+			title:     "origin preserves caller linker options and overrides the caller assignment",
+			k6Version: "v2.3.0",
+			origin:    "xk6",
+			goflags:   `'-ldflags=-X=` + v2Build + `.FromGoflags=goflags'`,
+			buildArgs: []string{
+				"-ldflags",
+				"-X=" + v2Build + ".FromArgs=args -X=" + v2Build + ".BuildOrigin=caller",
+			},
+			expect: "build_origin=xk6 from_goflags=goflags from_args=args\n",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.title, func(t *testing.T) {
+			t.Parallel()
+
+			platform := RuntimePlatform()
+
+			opts := NativeFoundryOpts{
+				Stdout: os.Stdout, //nolint:forbidigo
+				Stderr: os.Stderr, //nolint:forbidigo
+				GoOpts: GoOpts{
+					CopyGoEnv: true,
+					Env: map[string]string{
+						"GOPROXY":   proxySrv.URL,
+						"GONOPROXY": "none",
+						"GOPRIVATE": "go.k6.io",
+						"GONOSUMDB": "go.k6.io",
+						"GOFLAGS":   tc.goflags,
+					},
+					TmpCache: true,
+				},
+				BuildOrigin: tc.origin,
+			}
+
+			b, err := NewNativeFoundry(t.Context(), opts)
+			if err != nil {
+				t.Fatalf("setting up test %v", err)
+			}
+
+			binary := &bytes.Buffer{}
+			_, err = b.Build(t.Context(), platform, tc.k6Version, []Module{}, []Module{}, tc.buildArgs, binary)
+			if err != nil {
+				t.Fatalf("unexpected error %v", err)
+			}
+
+			binPath := filepath.Join(t.TempDir(), "k6")
+			if platform.OS == "windows" {
+				binPath += ".exe"
+			}
+
+			if err = os.WriteFile(binPath, binary.Bytes(), 0o700); err != nil { //nolint:forbidigo
+				t.Fatalf("writing binary %v", err)
+			}
+
+			out, err := exec.CommandContext(t.Context(), binPath).Output()
+			if err != nil {
+				t.Fatalf("running binary %v", err)
+			}
+
+			if string(out) != tc.expect {
+				t.Fatalf("expected %q got %q", tc.expect, string(out))
 			}
 		})
 	}
