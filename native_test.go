@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/grafana/k6foundry/pkg/testutils/goproxy"
@@ -407,6 +408,100 @@ func TestBuild(t *testing.T) {
 
 			if !reflect.DeepEqual(buildInfo, tc.expect) {
 				t.Fatalf("expected %v got %v", tc.expect, buildInfo)
+			}
+		})
+	}
+}
+
+func TestBuildArgsWithOrigin(t *testing.T) {
+	t.Parallel()
+
+	const (
+		v1Mod = "go.k6.io/k6"
+		v2Mod = "go.k6.io/k6/v2"
+		stamp = "-X=go.k6.io/k6/v2/internal/build.BuildOrigin="
+	)
+
+	testCases := []struct {
+		title     string
+		goflags   string
+		buildArgs []string
+		k6ModPath string
+		origin    string
+		expect    []string
+	}{
+		{
+			title:     "empty origin",
+			goflags:   "-ldflags=-X=other.Var=fromGoflags",
+			buildArgs: []string{"-tags=foo", "-ldflags=-s"},
+			k6ModPath: v2Mod,
+			expect:    []string{"-tags=foo", "-ldflags=-s"},
+		},
+		{
+			title:     "k6 v1 module path",
+			buildArgs: []string{"-tags=foo", "-ldflags=-s"},
+			k6ModPath: v1Mod,
+			origin:    "xk6",
+			expect:    []string{"-tags=foo", "-ldflags=-s"},
+		},
+		{
+			title:     "origin alone",
+			buildArgs: []string{},
+			k6ModPath: v2Mod,
+			origin:    "xk6",
+			expect:    []string{"-ldflags=" + stamp + "xk6"},
+		},
+		{
+			title:     "xk6 default linker options",
+			buildArgs: []string{"-trimpath", "-ldflags=-s -w"},
+			k6ModPath: v2Mod,
+			origin:    "xk6",
+			expect: []string{
+				"-ldflags=-s -w " + stamp + "xk6",
+				"-trimpath",
+			},
+		},
+		{
+			title:     "quoted multi-option ldflags from GOFLAGS",
+			goflags:   `'-ldflags=-s -w'`,
+			k6ModPath: v2Mod,
+			origin:    "xk6",
+			expect:    []string{"-ldflags=-s -w " + stamp + "xk6"},
+		},
+		{
+			title:     "ldflags from GOFLAGS and explicit build arguments merged",
+			goflags:   "-ldflags=-X=other.Var=fromGoflags",
+			buildArgs: []string{"-tags=foo", "-ldflags", "-X=other.Var=fromArgs"},
+			k6ModPath: v2Mod,
+			origin:    "xk6",
+			expect: []string{
+				"-ldflags=-X=other.Var=fromGoflags -X=other.Var=fromArgs " + stamp + "xk6",
+				"-tags=foo",
+			},
+		},
+		{
+			title:     "package-qualified linker value preserved",
+			buildArgs: []string{"-ldflags=all=-s"},
+			k6ModPath: v2Mod,
+			origin:    "xk6",
+			expect:    []string{"-ldflags=all=-s " + stamp + "xk6"},
+		},
+		{
+			title:     "caller assignment to BuildOrigin overridden",
+			buildArgs: []string{"-ldflags=" + stamp + "caller"},
+			k6ModPath: v2Mod,
+			origin:    "xk6",
+			expect:    []string{"-ldflags=" + stamp + "caller " + stamp + "xk6"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.title, func(t *testing.T) {
+			t.Parallel()
+
+			got := buildArgsWithOrigin(tc.goflags, tc.buildArgs, tc.k6ModPath, tc.origin)
+			if !slices.Equal(got, tc.expect) {
+				t.Fatalf("expected %q got %q", tc.expect, got)
 			}
 		})
 	}
