@@ -1,25 +1,43 @@
-work_dir = $(shell pwd)
-GOLANGCI_CONFIG ?= .golangci.yml
+# Run the k6-ci golangci-lint config locally. See grafana/k6-ci/README.md.
+# Targets: lint, update-lint-patch, clean-lint.
+# Overrides: WORKFLOW, LINT_BASE, LINT_FINAL, LINT_PATCH.
+#
+# Produces two gitignored files at the repo root:
+#   .golangci-base.yml  cached download from grafana/k6-ci (only re-fetched
+#                       when WORKFLOW changes)
+#   .golangci.yml       effective config = base + LINT_PATCH (if present)
 
-all: lint test
+WORKFLOW   ?= .github/workflows/test-lint.yml
+K6_CI_REF  := $(shell grep -oE 'grafana/k6-ci/[^@[:space:]]+@[A-Za-z0-9._/-]+' $(WORKFLOW) | head -n1 | cut -d@ -f2)
+BASE_URL   := https://raw.githubusercontent.com/grafana/k6-ci/$(K6_CI_REF)/.golangci.yml
 
-## linter-config: Checks if the linter config exists, if not, downloads it from the main k6 repository.
-.PHONY: linter-config
-linter-config:
-	test -s "${GOLANGCI_CONFIG}" || (echo "No linter config, downloading from main k6 repository..." && curl --silent --show-error --fail --no-location https://raw.githubusercontent.com/grafana/k6/master/.golangci.yml --output "${GOLANGCI_CONFIG}")
+LINT_BASE  ?= .golangci-base.yml
+LINT_FINAL ?= .golangci.yml
+LINT_PATCH ?= .golangci.patch
 
-## check-linter-version: Checks if the linter version is the same as the one specified in the linter config.
-.PHONY: check-linter-version
-check-linter-version:
-	(golangci-lint version | grep "version $(shell head -n 1 .golangci.yml | tr -d '\# ')") || echo "Your installation of golangci-lint is different from the one that is specified in k6's linter config (there it's $(shell head -n 1 .golangci.yml | tr -d '\# ')). Results could be different in the CI."
+$(LINT_BASE): $(WORKFLOW)
+	curl -fsSL $(BASE_URL) -o $@
 
-## lint: Runs the linters.
+$(LINT_FINAL): $(LINT_BASE) $(wildcard $(LINT_PATCH))
+	cp $(LINT_BASE) $@
+	@if [ -f $(LINT_PATCH) ]; then \
+	  echo "Applying $(LINT_PATCH)"; \
+	  git apply $(LINT_PATCH); \
+	fi
+
 .PHONY: lint
-lint: linter-config check-linter-version
-	echo "Running linters..."
-	golangci-lint run ./...
+lint: $(LINT_FINAL)
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$$(head -n1 $(LINT_BASE) | tr -d '# ') \
+	  run --config=$(LINT_FINAL) ./...
 
-.PHONY: test
-test:
-	go test -race  ./...
+.PHONY: update-lint-patch
+update-lint-patch: $(LINT_BASE)
+	@if [ ! -f $(LINT_FINAL) ]; then \
+	  echo "Run 'make lint' first to materialize $(LINT_FINAL), edit it, then re-run."; \
+	  exit 1; \
+	fi
+	-diff -u --label a/.golangci.yml --label b/.golangci.yml $(LINT_BASE) $(LINT_FINAL) > $(LINT_PATCH)
 
+.PHONY: clean-lint
+clean-lint:
+	rm -f $(LINT_BASE) $(LINT_FINAL)
