@@ -62,8 +62,10 @@ func SupportedPlatforms() []Platform {
 var supported = []Platform{ //nolint:gochecknoglobals
 	{OS: "linux", Arch: "amd64"},
 	{OS: "linux", Arch: "arm64"},
+	{OS: "linux", Arch: "s390x"},
 	{OS: "windows", Arch: "amd64"},
 	{OS: "windows", Arch: "arm64"},
 	{OS: "darwin", Arch: "amd64"},
 	{OS: "darwin", Arch: "arm64"},
+	{OS: "zos", Arch: "s390x"},
 }
