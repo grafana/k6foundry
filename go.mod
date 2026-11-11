@@ -2,6 +2,6 @@ module github.com/grafana/k6foundry
 
 go 1.26.0
 
-toolchain go1.26.10
+toolchain go1.26.11
 
 require golang.org/x/mod v0.42.0
